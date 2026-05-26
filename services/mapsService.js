@@ -14,3 +14,8 @@ export function createGoogleMapsDirectionsUrl({ destination, origin }) {
 
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
+
+export function createGoogleMapsEmbedUrl(destination, zoom = 17) {
+  if (!destination) return "https://www.google.com/maps";
+  return `https://www.google.com/maps?q=${destination.lat},${destination.lng}&z=${zoom}&output=embed`;
+}

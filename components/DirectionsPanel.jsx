@@ -1,10 +1,31 @@
 export default function DirectionsPanel({ navigationData }) {
-  const { building, instructions, steps, room } = navigationData;
+  const { building, instructions, steps, room, routeDetails, destinationType } = navigationData;
 
   return (
-    <section className="directions-card">
+    <section className="directions-card desktop-directions-panel">
       <p className="eyebrow">Final Leg</p>
       <h2>{room ? `Room ${room}` : building.shortName}</h2>
+      <p className="muted-copy">
+        {building.name} • {destinationType}
+      </p>
+      <div className="route-metric-grid">
+        <div className="route-metric-card">
+          <span className="eyebrow">Estimated walk</span>
+          <strong>
+            {routeDetails.estimatedWalkMinutes
+              ? `${routeDetails.estimatedWalkMinutes} min`
+              : "Waiting for location"}
+          </strong>
+        </div>
+        <div className="route-metric-card">
+          <span className="eyebrow">Distance</span>
+          <strong>{routeDetails.formattedDistanceFeet}</strong>
+        </div>
+        <div className="route-metric-card">
+          <span className="eyebrow">Origin</span>
+          <strong>{routeDetails.originPlaceName}</strong>
+        </div>
+      </div>
       <p className="directions-summary">{instructions}</p>
 
       <div className="steps-list">

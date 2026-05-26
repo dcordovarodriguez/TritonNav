@@ -1,7 +1,12 @@
+"use client";
+
 import Link from "next/link";
+import { buildNavigationHref } from "@/lib/navigation";
+import { useNavigationStore } from "@/store/useNavigationStore";
 
 export default function ClassCard({ classItem }) {
-  const href = `/navigation?building=${classItem.buildingId}&room=${encodeURIComponent(classItem.room)}`;
+  const selectDestination = useNavigationStore((state) => state.selectDestination);
+  const href = buildNavigationHref(classItem.buildingId, classItem.room);
 
   return (
     <article className="class-card">
@@ -16,7 +21,18 @@ export default function ClassCard({ classItem }) {
       </p>
 
       <div className="card-actions">
-        <Link className="primary-link" href={href}>
+        <Link
+          className="primary-link"
+          href={href}
+          onClick={() =>
+            selectDestination({
+              building: classItem.buildingId,
+              room: classItem.room,
+              label: `${classItem.course} • ${classItem.buildingName}`,
+              source: "schedule"
+            })
+          }
+        >
           Go now
         </Link>
       </div>
