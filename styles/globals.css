@@ -196,6 +196,12 @@ h3 {
   max-width: 60ch;
 }
 
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .hero-grid,
 .card-grid,
 .compact-grid,
@@ -287,6 +293,10 @@ h3 {
 .building-card h3 {
   font-size: 1.4rem;
   margin-bottom: 8px;
+}
+
+.feature-card {
+  min-height: 100%;
 }
 
 .card-actions {
@@ -467,6 +477,18 @@ h3 {
   margin-top: 10px;
 }
 
+.inline-alert {
+  border-radius: 20px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+}
+
+.inline-alert-warning {
+  background: rgba(217, 135, 44, 0.14);
+  border: 1px solid rgba(217, 135, 44, 0.25);
+  color: #7a4b10;
+}
+
 .search-suggestion-list {
   display: grid;
   gap: 10px;
@@ -501,6 +523,13 @@ h3 {
 
 .search-card .muted-copy {
   margin-top: 8px;
+}
+
+.empty-message-card {
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px dashed var(--line);
+  border-radius: 20px;
+  padding: 18px;
 }
 
 .search-input {

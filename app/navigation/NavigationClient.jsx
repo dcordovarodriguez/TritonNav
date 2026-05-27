@@ -74,6 +74,27 @@ export default function NavigationClient() {
           </p>
         </div>
 
+        {locationPermission === "denied" ? (
+          <div className="inline-alert inline-alert-warning">
+            <strong>Location permission denied.</strong> TritonNav is still working with a fallback
+            origin, and you can retry location access at any time.
+          </div>
+        ) : null}
+
+        {locationStatus === "unsupported" ? (
+          <div className="inline-alert inline-alert-warning">
+            <strong>Live location is unavailable in this browser.</strong> The route preview still
+            works, but walking estimates may be less precise until you open the app in a browser
+            that supports geolocation.
+          </div>
+        ) : null}
+
+        {locationStatus === "error" && error ? (
+          <div className="inline-alert inline-alert-warning">
+            <strong>Location update issue.</strong> {error}
+          </div>
+        ) : null}
+
         <div className="route-toolbar">
           <Link className="secondary-link" href="/search">
             Change destination
@@ -94,6 +115,17 @@ export default function NavigationClient() {
           <button className="secondary-link action-button" onClick={retryLocation} type="button">
             Retry location
           </button>
+        </div>
+
+        <div className="workflow-note">
+          <p className="workflow-selected">
+            Destination: <strong>{navigationData.building.name}</strong>
+            {navigationData.room ? ` • room ${navigationData.room}` : ""}
+          </p>
+          <p className="muted-copy">
+            Use the embedded map for a quick preview, then hand off to Google Maps for live walking
+            navigation across campus.
+          </p>
         </div>
 
         <div className="navigation-grid">

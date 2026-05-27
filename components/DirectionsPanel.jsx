@@ -1,5 +1,6 @@
 export default function DirectionsPanel({ navigationData }) {
-  const { building, instructions, steps, room, routeDetails, destinationType } = navigationData;
+  const { building, instructions, steps, room, routeDetails, destinationType, googleMapsUrl } =
+    navigationData;
 
   return (
     <section className="directions-card desktop-directions-panel">
@@ -27,6 +28,12 @@ export default function DirectionsPanel({ navigationData }) {
         </div>
       </div>
       <p className="directions-summary">{instructions}</p>
+
+      <div className="route-sheet-actions">
+        <a className="secondary-link" href={googleMapsUrl} rel="noreferrer" target="_blank">
+          Open in Google Maps
+        </a>
+      </div>
 
       <div className="steps-list">
         {steps.map((step, index) => (

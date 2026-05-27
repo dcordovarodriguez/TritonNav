@@ -43,7 +43,8 @@ export default function SearchPage() {
             <h1>Find a UCSD building or room</h1>
           </div>
           <p className="section-note">
-            This is useful once you move beyond the fixed class schedule demo.
+            This is useful once you move beyond the fixed class schedule demo and want a more
+            flexible campus destination flow.
           </p>
         </div>
 
@@ -59,7 +60,11 @@ export default function SearchPage() {
 
         <div className="workflow-note">
           <p className="muted-copy">
-            Search a building or room, tap a suggestion to store the destination, then preview the route.
+            Search a building, room, alias, or campus keyword, tap a suggestion, then preview the
+            route with room-aware guidance.
+          </p>
+          <p className="muted-copy">
+            Demo tip: try <strong>MANDE</strong>, <strong>CSB 115</strong>, or <strong>PC East Ballroom</strong>.
           </p>
           {selectedBuilding ? (
             <p className="workflow-selected">
@@ -93,10 +98,14 @@ export default function SearchPage() {
           ))}
 
           {!results.length && query.trim() ? (
-            <p className="empty-copy">
-              No campus results yet. Try a building code, alias, room number, or partial name such as
-              "MANDE".
-            </p>
+            <div className="empty-copy empty-message-card">
+              <p>No campus results matched that query yet.</p>
+              <p>
+                Try a building code, alias, room number, or partial name such as
+                {" "}
+                <strong>MANDE</strong>, <strong>CSB</strong>, or <strong>Price Center</strong>.
+              </p>
+            </div>
           ) : null}
         </div>
       </section>

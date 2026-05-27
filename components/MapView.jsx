@@ -18,6 +18,8 @@ export default function MapView({ navigationData, location }) {
   const mapsUrl =
     googleMapsUrl || createGoogleMapsDirectionsUrl({ destination, origin: location });
   const embedUrl = createGoogleMapsEmbedUrl(data.destination);
+  const hasDestinationCoordinates = Boolean(destination?.lat && destination?.lng);
+  const hasGoogleMapsAction = Boolean(mapsUrl);
 
   useEffect(() => {
     setMapLoading();
@@ -34,9 +36,13 @@ export default function MapView({ navigationData, location }) {
             {room ? ` • room ${room}` : ""}
           </p>
         </div>
-        <a className="primary-link" href={mapsUrl} rel="noreferrer" target="_blank">
-          Open in Google Maps
-        </a>
+        {hasGoogleMapsAction ? (
+          <a className="primary-link" href={mapsUrl} rel="noreferrer" target="_blank">
+            Open in Google Maps
+          </a>
+        ) : (
+          <span className="status-chip status-chip-warning">Google Maps handoff unavailable</span>
+        )}
       </div>
 
       <div className="map-status-row">
@@ -57,23 +63,39 @@ export default function MapView({ navigationData, location }) {
         </span>
       </div>
 
+      {!hasDestinationCoordinates ? (
+        <div className="inline-alert inline-alert-warning">
+          <strong>Map preview unavailable.</strong> TritonNav could not resolve destination
+          coordinates for this route, so only the text directions are available right now.
+        </div>
+      ) : null}
+
       <div className="map-embed-shell">
-        {mapStatus !== "ready" ? (
-          <div className="map-overlay">
-            {mapStatus === "error" ? mapError : "Loading Google Maps preview..."}
+        {hasDestinationCoordinates ? (
+          <>
+            {mapStatus !== "ready" ? (
+              <div className="map-overlay">
+                {mapStatus === "error" ? mapError : "Loading Google Maps preview..."}
+              </div>
+            ) : null}
+            <iframe
+              title={`Google Maps route preview for ${building.name}`}
+              width="100%"
+              height="300"
+              style={{ border: 0 }}
+              loading="lazy"
+              allowFullScreen
+              src={embedUrl}
+              onLoad={() => setMapReady()}
+              onError={() => setMapFailed("Google Maps preview could not be loaded.")}
+            />
+          </>
+        ) : (
+          <div className="map-empty-state">
+            We could not load a map preview for this destination yet, but the route details below
+            are still available.
           </div>
-        ) : null}
-        <iframe
-          title={`Google Maps route preview for ${building.name}`}
-          width="100%"
-          height="300"
-          style={{ border: 0 }}
-          loading="lazy"
-          allowFullScreen
-          src={embedUrl}
-          onLoad={() => setMapReady()}
-          onError={() => setMapFailed("Google Maps preview could not be loaded.")}
-        />
+        )}
       </div>
 
       <div className="map-details">
@@ -97,6 +119,11 @@ export default function MapView({ navigationData, location }) {
         <p>
           <strong>Address:</strong> {routeDetails.destinationAddress}
         </p>
+        {routeDetails.destinationNearbyLandmarks?.length ? (
+          <p>
+            <strong>Nearby landmark:</strong> {routeDetails.destinationNearbyLandmarks[0]}
+          </p>
+        ) : null}
         <p>
           <strong>Matched by:</strong> {data.matchedBy}
         </p>
@@ -104,6 +131,9 @@ export default function MapView({ navigationData, location }) {
           <strong>Coordinates:</strong> {destination.lat}, {destination.lng}
         </p>
         <p>{room ? `Optimized for room ${room}` : "Optimized for the building entrance"}</p>
+        {!hasGoogleMapsAction ? (
+          <p>Google Maps could not be opened automatically, so stay on this page for the route preview.</p>
+        ) : null}
       </div>
     </section>
   );
