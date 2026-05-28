@@ -4,7 +4,7 @@ import Container from "@/components/Layout/Container";
 
 export const metadata = {
   title: "TritonNav",
-  description: "A UCSD class-to-class campus navigation starter app."
+  description: "A UCSD-focused campus navigation app for schedule-aware routing and live map handoff."
 };
 
 export default function RootLayout({ children }) {

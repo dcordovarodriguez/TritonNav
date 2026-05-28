@@ -27,7 +27,7 @@ export default function SearchBar({
             value={value}
           />
         </label>
-        <button className="secondary-link action-button search-submit" type="submit">
+        <button className="primary-link action-button search-submit" type="submit">
           {submitLabel}
         </button>
       </form>
