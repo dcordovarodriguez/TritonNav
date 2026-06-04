@@ -33,6 +33,28 @@ const UCSD_LOCATIONS = [
     nearbyLandmarks: ["Warren Mall", "Computer Science and Engineering Building"]
   },
   {
+    id: "mos",
+    name: "Mosaic",
+    aliases: ["mosaic building", "mosaic hall", "mos college building", "sixth mosaic"],
+    type: "building",
+    shortName: "MOS",
+    buildingCode: "MOS",
+    coordinates: { lat: 32.87995, lng: -117.24137 },
+    address: "9510 Innovation Ln, La Jolla, CA 92093",
+    nearbyLandmarks: ["Sixth College", "Ridge Walk", "Catalyst"]
+  },
+  {
+    id: "dib",
+    name: "Design and Innovation Building",
+    aliases: ["design innovation", "design and innovation", "innovation building", "dib"],
+    type: "building",
+    shortName: "DIB",
+    buildingCode: "DIB",
+    coordinates: { lat: 32.87934, lng: -117.23468 },
+    address: "9510 Innovation Ln, La Jolla, CA 92093",
+    nearbyLandmarks: ["Pepper Canyon", "UC San Diego Design Lab"]
+  },
+  {
     id: "price-center",
     name: "Price Center",
     aliases: ["pc", "price", "price center east", "price center west", "student center"],
@@ -48,11 +70,44 @@ const UCSD_LOCATIONS = [
     name: "Mandeville Center",
     aliases: ["mandeville", "mande", "mandeville auditorium", "mandeville art gallery"],
     type: "building",
-    shortName: "Mandeville",
+    shortName: "MANDE",
     buildingCode: "MANDE",
     coordinates: { lat: 32.87943, lng: -117.2411 },
     address: "Mandeville Ln, La Jolla, CA 92093",
     nearbyLandmarks: ["Mandeville Auditorium", "Visual Arts Facility", "Ridge Walk"]
+  },
+  {
+    id: "geisel-library",
+    name: "Geisel Library",
+    aliases: ["geisel", "library", "ucsd library", "main library"],
+    type: "library",
+    shortName: "Geisel",
+    buildingCode: "GEISEL",
+    coordinates: { lat: 32.88114, lng: -117.23758 },
+    address: "9500 Gilman Dr, La Jolla, CA 92093",
+    nearbyLandmarks: ["Library Walk", "Silent Tree"]
+  },
+  {
+    id: "sixth-college",
+    name: "Sixth College",
+    aliases: ["sixth", "sixth college neighborhood", "new sixth", "sixth college campus"],
+    type: "college",
+    shortName: "Sixth",
+    buildingCode: "SIXTH",
+    coordinates: { lat: 32.88043, lng: -117.24108 },
+    address: "9500 Gilman Dr, La Jolla, CA 92093",
+    nearbyLandmarks: ["Mosaic", "Catalyst", "Ridge Walk"]
+  },
+  {
+    id: "muir-college",
+    name: "John Muir College",
+    aliases: ["muir", "muir college", "john muir", "muir campus"],
+    type: "college",
+    shortName: "Muir",
+    buildingCode: "MUIR",
+    coordinates: { lat: 32.87819, lng: -117.24284 },
+    address: "9500 Gilman Dr, La Jolla, CA 92093",
+    nearbyLandmarks: ["Muir Quad", "Mandeville Center"]
   },
   {
     id: "sixth-college-parking",
