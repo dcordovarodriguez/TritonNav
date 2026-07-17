@@ -77,6 +77,61 @@ const UCSD_LOCATIONS = [
     nearbyLandmarks: ["Mandeville Auditorium", "Visual Arts Facility", "Ridge Walk"]
   },
   {
+    id: "warren-lecture-hall",
+    name: "Warren Lecture Hall",
+    aliases: ["warren lecture", "warren lecture halls", "warren", "wlh"],
+    type: "building",
+    shortName: "WLH",
+    buildingCode: "WLH",
+    coordinates: { lat: 32.88172, lng: -117.23505 },
+    address: "9500 Gilman Dr, La Jolla, CA 92093",
+    nearbyLandmarks: ["Warren Mall", "Computer Science and Engineering Building"]
+  },
+  {
+    id: "center-hall",
+    name: "Center Hall",
+    aliases: ["center", "centre hall", "centr"],
+    type: "building",
+    shortName: "CENTR",
+    buildingCode: "CENTR",
+    coordinates: { lat: 32.87788, lng: -117.23604 },
+    address: "9500 Gilman Dr, La Jolla, CA 92093",
+    nearbyLandmarks: ["Library Walk", "Price Center", "Student Services Center"]
+  },
+  {
+    id: "peterson-hall",
+    name: "Peterson Hall",
+    aliases: ["peterson", "peter"],
+    type: "building",
+    shortName: "PETER",
+    buildingCode: "PETER",
+    coordinates: { lat: 32.87895, lng: -117.23855 },
+    address: "9500 Gilman Dr, La Jolla, CA 92093",
+    nearbyLandmarks: ["Geisel Library", "Library Walk", "Sixth College"]
+  },
+  {
+    id: "york-hall",
+    name: "York Hall",
+    aliases: ["york"],
+    type: "building",
+    shortName: "YORK",
+    buildingCode: "YORK",
+    coordinates: { lat: 32.87595, lng: -117.24064 },
+    address: "9500 Gilman Dr, La Jolla, CA 92093",
+    nearbyLandmarks: ["Revelle Plaza", "Urey Hall", "Pacific Hall"]
+  },
+  {
+    id: "apm",
+    name: "Applied Physics and Mathematics",
+    aliases: ["apm", "ap m", "ap and m", "ap&m", "applied physics mathematics"],
+    type: "building",
+    shortName: "AP&M",
+    buildingCode: "APM",
+    coordinates: { lat: 32.87815, lng: -117.24108 },
+    address: "2985 Muir Lane, La Jolla, CA 92093",
+    nearbyLandmarks: ["Muir College", "Scholars Parking Structure", "Applied Physics and Mathematics"]
+  },
+  {
     id: "geisel-library",
     name: "Geisel Library",
     aliases: ["geisel", "library", "ucsd library", "main library"],

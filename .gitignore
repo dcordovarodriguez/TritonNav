@@ -9,3 +9,9 @@ coverage
 *.ase
 *.pdf
 TritonNav_branding/
+
+# Local design/reference artifacts
+TritonNav_Poster.html
+tritonnav_poster_concepts.html
+tritonnav_creenshots/
+UCSD fonts:colors/
