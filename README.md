@@ -10,7 +10,7 @@ TritonNav helps a student move from a class schedule or campus search query into
 - room-aware navigation handoff
 - live browser geolocation
 - campus-first reverse geocoding
-- Google Maps preview and live walking handoff
+- in-app route preview with Google Maps fallback links
 
 The app is intentionally structured so the campus logic, search index, distance math, and navigation state can be reused later in a native mobile client.
 
@@ -20,11 +20,11 @@ The app is intentionally structured so the campus logic, search index, distance 
 - React
 - Zustand
 - Plain CSS with responsive mobile-first layout rules
-- Google Maps URL/embed handoff
+- Google Maps URL/embed fallback while the in-app map layer evolves
 
 ## Current MVP Features
 
-- Home screen with demo class cards
+- Map-first homepage with compact search and contextual destination sheet
 - Search screen with partial matching, aliases, building codes, and fuzzy campus lookup
 - Live browser geolocation with permission-aware fallback messaging
 - UCSD-first reverse geocoding for user origin labels
@@ -33,16 +33,16 @@ The app is intentionally structured so the campus logic, search index, distance 
   - destination details
   - final-leg room instructions
   - embedded Google Maps preview
-  - direct "Open in Google Maps" action
-- Mobile bottom-sheet trip summary for iPhone-sized demos
+  - direct "Open in Google Maps" fallback action
+- Mobile-first bottom-sheet route summary for iPhone-sized demos
 
 ## Demo Instructions
 
 1. Start the app with `npm run dev`.
 2. Open [http://localhost:3000](http://localhost:3000).
-3. On the home screen, tap a class card like `COGS 101B`.
-4. Allow location access to show live origin context.
-5. Open the navigation screen and point out:
+3. On the home screen, search for a room like `CSB 115`, `MOS 0114`, or `MANDE B202`.
+4. Select a result, preview the route, and allow location access to show live origin context.
+5. Open the route screen if needed and point out:
    - destination building and room
    - estimated walk time
    - feet-based distance
@@ -78,6 +78,14 @@ npm run build
 
 ### Vercel
 
+Official public URL:
+
+```text
+https://tritonnav.diegocordova.net/
+```
+
+The generated Vercel URL should redirect to the official custom domain after domain consolidation is deployed.
+
 1. Push the repository to GitHub.
 2. Import the repo into [Vercel](https://vercel.com).
 3. Let Vercel auto-detect `Next.js`.
@@ -110,7 +118,7 @@ The long-term direction is a stronger mobile-native version with Expo + React Na
 
 ## Core Files
 
-- `app/page.js`: homepage and demo overview
+- `app/page.js`: map-first homepage, search, and route preview sheet
 - `app/search/page.js`: campus search flow
 - `app/navigation/NavigationClient.jsx`: route preview experience
 - `components/MapView.jsx`: embedded map preview and live handoff

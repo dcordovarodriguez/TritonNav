@@ -7,16 +7,7 @@ import { calculateDistanceMeters, metersToFeet } from "@/lib/distance";
 import { buildNavigationHref, getNavigationData, searchCampusLocations } from "@/lib/navigation";
 import { createGoogleMapsEmbedUrl } from "@/services/mapsService";
 
-const DEFAULT_QUERY = "CSB 115";
-const DEFAULT_DESTINATION = {
-  buildingId: "csb",
-  room: "115",
-  name: "Cognitive Science Building 115",
-  shortName: "CSB",
-  buildingCode: "CSB",
-  type: "classroom",
-  typeLabel: "classroom"
-};
+const DEFAULT_QUERY = "";
 const DEMO_SEARCHES = ["CSB 115", "MOS 0114", "MANDE B202", "DIB 122"];
 const DEMO_ACTIONS = [
   {
@@ -39,6 +30,16 @@ const FALLBACK_ORIGIN = {
   lat: 32.88114,
   lng: -117.23758,
   label: "Geisel Library"
+};
+const DEFAULT_MAP_CENTER = {
+  lat: 32.88006,
+  lng: -117.23401
+};
+const SHEET_STATES = {
+  DISCOVERY: "discovery",
+  RESULTS: "results",
+  SELECTED: "selected",
+  ROUTE: "route"
 };
 const WALKING_METERS_PER_MINUTE = 80.4672;
 const METERS_PER_MILE = 1609.344;
@@ -78,9 +79,11 @@ function getDisplaySubtitle(result) {
 }
 
 function getLocationLabel(status, location) {
-  if (location) return `${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}`;
-  if (status === "loading" || status === "idle") return "Locating";
-  return "Campus fallback";
+  if (location) return "Current location";
+  if (status === "loading" || status === "idle") return "Locating…";
+  if (status === "denied") return "Permission required";
+  if (status === "unsupported") return "Location unavailable";
+  return "Approximate campus area";
 }
 
 function clampMapPoint(value) {
@@ -208,21 +211,28 @@ function buildRoutePreview({ origin, destination, destinationLabel, originLabel 
 
 export default function HomePage() {
   const [query, setQuery] = useState(DEFAULT_QUERY);
-  const [selectedResult, setSelectedResult] = useState(DEFAULT_DESTINATION);
+  const [selectedResult, setSelectedResult] = useState(null);
+  const [sheetState, setSheetState] = useState(SHEET_STATES.DISCOVERY);
   const { location, status, retryLocation } = useLocation();
+  const hasSearchQuery = query.trim().length > 0;
   const results = useMemo(() => searchCampusLocations(query), [query]);
   const navigationData = useMemo(
     () =>
-      getNavigationData(
-        selectedResult.buildingId,
-        selectedResult.room,
-        location || FALLBACK_ORIGIN
-      ),
+      selectedResult
+        ? getNavigationData(
+            selectedResult.buildingId,
+            selectedResult.room,
+            location || FALLBACK_ORIGIN
+          )
+        : null,
     [location, selectedResult]
   );
   const destination = navigationData?.destination;
-  const embedUrl = destination ? createGoogleMapsEmbedUrl(destination, 18) : "";
-  const selectedKey = `${selectedResult.buildingId}:${selectedResult.room || ""}`;
+  const mapCenter = destination || DEFAULT_MAP_CENTER;
+  const embedUrl = createGoogleMapsEmbedUrl(mapCenter, destination ? 18 : 16);
+  const selectedKey = selectedResult
+    ? `${selectedResult.buildingId}:${selectedResult.room || ""}`
+    : "";
   const visibleResults = results.slice(0, 6);
   const origin = location || FALLBACK_ORIGIN;
   const routePreview = navigationData
@@ -236,9 +246,13 @@ export default function HomePage() {
   const selectedCollege = navigationData?.college;
   const selectedRecreationFacility = navigationData?.recreationFacility;
   const collegeBoundary = getCollegeBoundaryOverlay(selectedCollege);
+  const shouldShowResults = sheetState === SHEET_STATES.RESULTS && hasSearchQuery;
+  const shouldShowDestination = sheetState === SHEET_STATES.SELECTED && selectedResult && routePreview;
+  const shouldShowRoute = sheetState === SHEET_STATES.ROUTE && selectedResult && routePreview;
 
   function selectResult(result) {
     setSelectedResult(result);
+    setSheetState(SHEET_STATES.SELECTED);
   }
 
   function runDemoSearch(queryValue) {
@@ -249,116 +263,78 @@ export default function HomePage() {
 
   function submitSearch(event) {
     event.preventDefault();
-    if (results[0]) selectResult(results[0]);
+    if (results[0]) {
+      selectResult(results[0]);
+      return;
+    }
+
+    setSheetState(hasSearchQuery ? SHEET_STATES.RESULTS : SHEET_STATES.DISCOVERY);
   }
 
   function selectFeatured(queryValue) {
     runDemoSearch(queryValue);
   }
 
+  function updateQuery(value) {
+    setQuery(value);
+    setSheetState(value.trim() ? SHEET_STATES.RESULTS : SHEET_STATES.DISCOVERY);
+  }
+
+  function clearSearch() {
+    setQuery("");
+    setSheetState(SHEET_STATES.DISCOVERY);
+  }
+
+  function changeDestination() {
+    setSelectedResult(null);
+    setSheetState(query.trim() ? SHEET_STATES.RESULTS : SHEET_STATES.DISCOVERY);
+  }
+
+  function previewRoute() {
+    if (selectedResult) setSheetState(SHEET_STATES.ROUTE);
+  }
+
   return (
     <main className="map-first-page">
       <section className="campus-map-shell" aria-label="UCSD campus map search">
-        <div className="map-search-panel">
-          <div className="prototype-badge">Prototype in Development</div>
-
+        <div className="map-top-bar">
+          <div className="map-brand-row">
+            <div>
+              <p className="map-brand-eyebrow">Prototype in Development</p>
+              <strong>TritonNav</strong>
+            </div>
+            <span className="map-brand-status">UCSD campus guide</span>
+          </div>
           <form className="map-search-form" onSubmit={submitSearch}>
             <label className="sr-only" htmlFor="campus-search">
               Search UCSD destinations
             </label>
+            <span className="map-search-icon" aria-hidden="true">
+              ⌕
+            </span>
             <input
               autoComplete="off"
               className="map-search-input"
               id="campus-search"
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search CSB 115, MOS 0114, Muir..."
+              onChange={(event) => updateQuery(event.target.value)}
+              placeholder="Where are you going?"
               type="search"
               value={query}
             />
-            <button className="map-search-button" type="submit">
-              GO
-            </button>
-          </form>
-
-          <div className="demo-mode-panel">
-            <div className="demo-mode-heading">
-              <span className="demo-brand-dot" aria-hidden="true" />
-              <div>
-                <p className="eyebrow">Demo Mode</p>
-                <strong>One tap route previews</strong>
-              </div>
-            </div>
-            <div className="demo-action-grid" aria-label="Demo quick actions">
-              {DEMO_ACTIONS.map((action) => (
-                <button
-                  className="demo-action-button"
-                  key={action.label}
-                  onClick={() => runDemoSearch(action.query)}
-                  type="button"
-                >
-                  <span>{action.label}</span>
-                  <small>{action.detail}</small>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="map-featured-row" aria-label="Featured destinations">
-            {DEMO_SEARCHES.map((featuredQuery) => (
+            {query ? (
               <button
-                className="map-featured-chip"
-                key={featuredQuery}
-                onClick={() => selectFeatured(featuredQuery)}
+                aria-label="Clear search"
+                className="map-search-clear"
+                onClick={clearSearch}
                 type="button"
               >
-                {featuredQuery}
+                ×
               </button>
-            ))}
-          </div>
-
-          {visibleResults.length ? (
-            <div className="map-result-list" aria-label="Search results">
-              {visibleResults.map((result) => {
-                const resultKey = `${result.buildingId}:${result.room || ""}`;
-                const isSelected = resultKey === selectedKey;
-                const abbreviation = result.buildingCode || result.shortName || "";
-
-                return (
-                  <article
-                    className={`map-result-card ${isSelected ? "map-result-card-selected" : ""}`}
-                    key={result.key}
-                    onClick={() => selectResult(result)}
-                  >
-                    <button
-                      aria-label={`Center map on ${getDisplayTitle(result)}`}
-                      className="map-result-select"
-                      type="button"
-                    >
-                      <span>
-                        <span className="map-result-title">{getDisplayTitle(result)}</span>
-                        <span className="map-result-subtitle">{getDisplaySubtitle(result)}</span>
-                      </span>
-                      <span className="map-result-meta">
-                        <span>{formatResultType(result.typeLabel || result.type)}</span>
-                        {abbreviation ? <span>{abbreviation}</span> : null}
-                      </span>
-                    </button>
-                    <Link
-                      className="map-result-go"
-                      href={buildNavigationHref(result.buildingId, result.room)}
-                    >
-                      GO
-                    </Link>
-                  </article>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="map-empty-results">
-              <strong>No matches yet.</strong>
-              <span>Try CSB 115, MOS 0114, MANDE B202, DIB 122, Muir, Sixth, or Geisel.</span>
-            </div>
-          )}
+            ) : null}
+            <button aria-label="Search destinations" className="map-search-submit" type="submit">
+              Search
+            </button>
+          </form>
         </div>
 
         <button
@@ -379,7 +355,7 @@ export default function HomePage() {
                 height="100%"
                 loading="lazy"
                 src={embedUrl}
-                title={`Map centered on ${navigationData?.building.name || selectedResult.name}`}
+                title={`Map centered on ${navigationData?.building.name || "UC San Diego"}`}
                 width="100%"
               />
               {routePreview ? (
@@ -391,24 +367,30 @@ export default function HomePage() {
                     {collegeBoundary ? (
                       <polygon className="college-boundary-line" points={collegeBoundary.points} />
                     ) : null}
-                    <polyline
-                      className="route-line-shadow"
-                      fill="none"
-                      points={routePreview.path}
-                    />
-                    <polyline
-                      className="route-line"
-                      fill="none"
-                      points={routePreview.path}
-                    />
+                    {shouldShowRoute ? (
+                      <polyline
+                        className="route-line-shadow"
+                        fill="none"
+                        points={routePreview.path}
+                      />
+                    ) : null}
+                    {shouldShowRoute ? (
+                      <polyline
+                        className="route-line"
+                        fill="none"
+                        points={routePreview.path}
+                      />
+                    ) : null}
                   </svg>
-                  <span
-                    className="route-marker route-marker-origin"
-                    style={{
-                      left: `${routePreview.points.origin.x}%`,
-                      top: `${routePreview.points.origin.y}%`
-                    }}
-                  />
+                  {shouldShowRoute ? (
+                    <span
+                      className="route-marker route-marker-origin"
+                      style={{
+                        left: `${routePreview.points.origin.x}%`,
+                        top: `${routePreview.points.origin.y}%`
+                      }}
+                    />
+                  ) : null}
                   <span
                     className="route-marker route-marker-destination"
                     style={{
@@ -424,42 +406,134 @@ export default function HomePage() {
           )}
         </div>
 
-        {routePreview ? (
-          <div className="route-preview-card">
-            <div>
-              <p className="eyebrow">Route Preview</p>
-              <h2>{routePreview.destinationLabel}</h2>
+        <section
+          aria-label="Destination panel"
+          className={`map-bottom-sheet map-bottom-sheet-${sheetState}`}
+        >
+          <button
+            aria-label="Show destination options"
+            className="sheet-grab-handle"
+            onClick={() => setSheetState(SHEET_STATES.DISCOVERY)}
+            type="button"
+          >
+            <span />
+          </button>
+
+          {sheetState === SHEET_STATES.DISCOVERY ? (
+            <div className="sheet-panel-content">
+              <div className="sheet-heading-row">
+                <div>
+                  <p className="eyebrow">Start Here</p>
+                  <h1>Where are you going?</h1>
+                </div>
+                <span className="sheet-state-chip">Guest search</span>
+              </div>
+              <div className="quick-destination-row" aria-label="Quick destinations">
+                {DEMO_SEARCHES.map((featuredQuery) => (
+                  <button
+                    className="quick-destination-chip"
+                    key={featuredQuery}
+                    onClick={() => selectFeatured(featuredQuery)}
+                    type="button"
+                  >
+                    {featuredQuery}
+                  </button>
+                ))}
+              </div>
+              <div className="demo-route-row" aria-label="Demo routes">
+                {DEMO_ACTIONS.map((action) => (
+                  <button
+                    className="demo-route-button"
+                    key={action.label}
+                    onClick={() => runDemoSearch(action.query)}
+                    type="button"
+                  >
+                    <span>{action.label}</span>
+                    <small>{action.query}</small>
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="route-preview-metrics">
-              <div>
-                <span>Distance</span>
-                <strong>{routePreview.distanceLabel}</strong>
+          ) : null}
+
+          {shouldShowResults ? (
+            <div className="sheet-panel-content">
+              <div className="sheet-heading-row">
+                <div>
+                  <p className="eyebrow">Search Results</p>
+                  <h2>{visibleResults.length ? "Select a destination" : "No matches yet"}</h2>
+                </div>
+                <button className="sheet-text-button" onClick={clearSearch} type="button">
+                  Clear
+                </button>
               </div>
-              <div>
-                <span>Estimated Walk Time</span>
-                <strong>{routePreview.walkTimeLabel}</strong>
-              </div>
+              {visibleResults.length ? (
+                <div className="sheet-result-list" aria-label="Search results">
+                  {visibleResults.map((result) => {
+                    const resultKey = `${result.buildingId}:${result.room || ""}`;
+                    const isSelected = resultKey === selectedKey;
+                    const abbreviation = result.buildingCode || result.shortName || "";
+
+                    return (
+                      <button
+                        aria-pressed={isSelected}
+                        className={`sheet-result-row ${isSelected ? "sheet-result-row-selected" : ""}`}
+                        key={result.key}
+                        onClick={() => selectResult(result)}
+                        type="button"
+                      >
+                        <span>
+                          <strong>{getDisplayTitle(result)}</strong>
+                          <small>{getDisplaySubtitle(result)}</small>
+                        </span>
+                        <span className="sheet-result-meta">
+                          {formatResultType(result.typeLabel || result.type)}
+                          {abbreviation ? ` • ${abbreviation}` : ""}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="sheet-empty-state">
+                  Try CSB 115, MOS 0114, MANDE B202, DIB 122, Muir, Sixth, or Geisel.
+                </div>
+              )}
             </div>
-            {selectedCollege ? (
-              <div className="college-result-details">
+          ) : null}
+
+          {shouldShowDestination ? (
+            <div className="sheet-panel-content">
+              <div className="sheet-heading-row">
                 <div>
-                  <span>Associated Buildings</span>
-                  <p>{selectedCollege.associatedBuildings.slice(0, 4).join(", ")}</p>
+                  <p className="eyebrow">Destination Selected</p>
+                  <h2>{routePreview.destinationLabel}</h2>
+                </div>
+                <button className="sheet-text-button" onClick={changeDestination} type="button">
+                  Change
+                </button>
+              </div>
+              <div className="sheet-metric-grid">
+                <div>
+                  <span>Distance</span>
+                  <strong>{routePreview.distanceLabel}</strong>
                 </div>
                 <div>
-                  <span>Residence Halls</span>
-                  <p>{selectedCollege.residenceHalls.slice(0, 4).join(", ")}</p>
+                  <span>Walk time</span>
+                  <strong>{routePreview.walkTimeLabel}</strong>
                 </div>
               </div>
-            ) : null}
-            {selectedRecreationFacility ? (
-              <div className="facility-link-panel">
-                <div>
-                  <span>UCSD Rec Links</span>
-                  <p>{selectedRecreationFacility.amenities.slice(0, 3).join(" • ")}</p>
-                </div>
+              <p className="sheet-summary">
+                {navigationData.instructions}
+              </p>
+              {selectedCollege ? (
+                <p className="sheet-supporting-copy">
+                  {selectedCollege.associatedBuildings.slice(0, 3).join(", ")}
+                </p>
+              ) : null}
+              {selectedRecreationFacility ? (
                 <div className="facility-link-list">
-                  {selectedRecreationFacility.ctas.map((cta) => (
+                  {selectedRecreationFacility.ctas.slice(0, 2).map((cta) => (
                     <a
                       className="facility-link-button"
                       href={cta.url}
@@ -471,27 +545,52 @@ export default function HomePage() {
                     </a>
                   ))}
                 </div>
-              </div>
-            ) : null}
-            <p className="route-preview-origin">Origin: {routePreview.originLabel}</p>
-            <Link
-              className="map-result-go route-preview-go"
-              href={buildNavigationHref(selectedResult.buildingId, selectedResult.room)}
-            >
-              GO
-            </Link>
-          </div>
-        ) : (
-          <div className="route-preview-card route-preview-card-loading">
-            <p className="eyebrow">Route Preview</p>
-            <h2>Finding campus route</h2>
-            <div className="route-loading-bars" aria-hidden="true">
-              <span />
-              <span />
-              <span />
+              ) : null}
+              <button className="sheet-primary-action" onClick={previewRoute} type="button">
+                Preview Route
+              </button>
             </div>
-          </div>
-        )}
+          ) : null}
+
+          {shouldShowRoute ? (
+            <div className="sheet-panel-content">
+              <div className="sheet-heading-row">
+                <div>
+                  <p className="eyebrow">Route Preview</p>
+                  <h2>{routePreview.destinationLabel}</h2>
+                </div>
+                <button className="sheet-text-button" onClick={changeDestination} type="button">
+                  Change
+                </button>
+              </div>
+              <div className="sheet-metric-grid">
+                <div>
+                  <span>Origin</span>
+                  <strong>{routePreview.originLabel}</strong>
+                </div>
+                <div>
+                  <span>Distance</span>
+                  <strong>{routePreview.distanceLabel}</strong>
+                </div>
+                <div>
+                  <span>Walk time</span>
+                  <strong>{routePreview.walkTimeLabel}</strong>
+                </div>
+              </div>
+              <p className="sheet-summary">{navigationData.instructions}</p>
+              <p className="sheet-supporting-copy">
+                Accessibility preferences are coming soon. Current preview uses the campus walking
+                estimate.
+              </p>
+              <Link
+                className="sheet-primary-action"
+                href={buildNavigationHref(selectedResult.buildingId, selectedResult.room)}
+              >
+                Start Route
+              </Link>
+            </div>
+          ) : null}
+        </section>
       </section>
     </main>
   );

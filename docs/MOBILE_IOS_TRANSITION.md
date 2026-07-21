@@ -2,7 +2,8 @@
 
 Date: 2026-07-20  
 Canonical repository: `/Users/diegocordova/Desktop/TritonNav`  
-Current production web deployment: https://triton-nav.vercel.app/  
+Canonical production web deployment: https://tritonnav.diegocordova.net/  
+Legacy/generated Vercel URL: https://triton-nav.vercel.app/  
 Recommended mobile path: Expo / React Native  
 Not recommended now: full SwiftUI rewrite
 
