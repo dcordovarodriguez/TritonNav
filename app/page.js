@@ -13,17 +13,20 @@ const DEMO_ACTIONS = [
   {
     label: "Find My Class",
     query: "CSB 115",
-    detail: "Room route"
+    detail: "Room route",
+    icon: "CS"
   },
   {
     label: "Find a Building",
     query: "DIB 122",
-    detail: "Building + room"
+    detail: "Building + room",
+    icon: "BLD"
   },
   {
     label: "Explore Colleges",
     query: "Sixth",
-    detail: "College result"
+    detail: "College result",
+    icon: "COL"
   }
 ];
 const FALLBACK_ORIGIN = {
@@ -448,8 +451,16 @@ export default function HomePage() {
                     onClick={() => runDemoSearch(action.query)}
                     type="button"
                   >
-                    <span>{action.label}</span>
-                    <small>{action.query}</small>
+                    <span className="demo-route-icon" aria-hidden="true">
+                      {action.icon}
+                    </span>
+                    <span className="demo-route-copy">
+                      <span>{action.label}</span>
+                      <small>{action.query}</small>
+                    </span>
+                    <span className="demo-route-arrow" aria-hidden="true">
+                      &gt;
+                    </span>
                   </button>
                 ))}
               </div>
@@ -486,9 +497,14 @@ export default function HomePage() {
                           <strong>{getDisplayTitle(result)}</strong>
                           <small>{getDisplaySubtitle(result)}</small>
                         </span>
-                        <span className="sheet-result-meta">
-                          {formatResultType(result.typeLabel || result.type)}
-                          {abbreviation ? ` • ${abbreviation}` : ""}
+                        <span className="sheet-result-side">
+                          <span className="sheet-result-meta">
+                            {formatResultType(result.typeLabel || result.type)}
+                            {abbreviation ? ` • ${abbreviation}` : ""}
+                          </span>
+                          <span className="sheet-result-arrow" aria-hidden="true">
+                            &gt;
+                          </span>
                         </span>
                       </button>
                     );
