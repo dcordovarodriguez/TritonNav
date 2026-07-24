@@ -25,7 +25,7 @@ export default function RouteBottomSheet({ navigationData, locationStatus, onRet
           <h2>{room ? `${building.shortName} ${room}` : building.name}</h2>
           <p className="muted-copy">
             {routeDetails.estimatedWalkMinutes
-              ? `${routeDetails.estimatedWalkMinutes} min walk • ${routeDetails.formattedDistanceFeet}`
+              ? `${routeDetails.formattedWalkTime} walk • ${routeDetails.formattedDistanceFeet}`
               : "Waiting for a live origin to estimate walk time"}
           </p>
         </div>

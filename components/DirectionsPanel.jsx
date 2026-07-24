@@ -14,7 +14,7 @@ export default function DirectionsPanel({ navigationData }) {
           <span className="eyebrow">Estimated walk</span>
           <strong>
             {routeDetails.estimatedWalkMinutes
-              ? `${routeDetails.estimatedWalkMinutes} min`
+              ? routeDetails.formattedWalkTime
               : "Waiting for location"}
           </strong>
         </div>

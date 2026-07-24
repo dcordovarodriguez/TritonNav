@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useLocation } from "@/hooks/useLocation";
 import { calculateDistanceMeters, metersToFeet } from "@/lib/distance";
 import { buildNavigationHref, getNavigationData, searchCampusLocations } from "@/lib/navigation";
+import { formatDurationMinutes } from "@/lib/utils";
 import { createGoogleMapsEmbedUrl } from "@/services/mapsService";
 
 const DEFAULT_QUERY = "";
@@ -44,6 +45,11 @@ const SHEET_STATES = {
   SELECTED: "selected",
   ROUTE: "route"
 };
+const SHEET_POSITIONS = {
+  EXPANDED: "expanded",
+  COLLAPSED: "collapsed"
+};
+const SHEET_DRAG_THRESHOLD = 56;
 const WALKING_METERS_PER_MINUTE = 80.4672;
 const METERS_PER_MILE = 1609.344;
 const FEET_PER_MILE = 5280;
@@ -202,7 +208,7 @@ function buildRoutePreview({ origin, destination, destinationLabel, originLabel 
   return {
     destinationLabel,
     distanceLabel: formatRouteDistance(distanceMeters),
-    walkTimeLabel: walkMinutes ? `${walkMinutes} minutes` : "Time unavailable",
+    walkTimeLabel: walkMinutes ? formatDurationMinutes(walkMinutes) : "Time unavailable",
     originLabel,
     points: {
       origin: routeGeometry.origin,
@@ -212,10 +218,48 @@ function buildRoutePreview({ origin, destination, destinationLabel, originLabel 
   };
 }
 
+function getCollapsedSheetSummary({ query, routePreview, sheetState, visibleResultCount }) {
+  if (sheetState === SHEET_STATES.SELECTED && routePreview) {
+    return {
+      title: routePreview.destinationLabel,
+      detail: routePreview.walkTimeLabel
+    };
+  }
+
+  if (sheetState === SHEET_STATES.ROUTE && routePreview) {
+    return {
+      title: routePreview.destinationLabel,
+      detail: `${routePreview.walkTimeLabel} - route preview`
+    };
+  }
+
+  if (sheetState === SHEET_STATES.RESULTS) {
+    const countLabel = `${visibleResultCount} ${visibleResultCount === 1 ? "result" : "results"}`;
+    return {
+      title: query.trim() || "Search results",
+      detail: countLabel
+    };
+  }
+
+  return {
+    title: "Where are you going?",
+    detail: "Search campus destinations"
+  };
+}
+
 export default function HomePage() {
   const [query, setQuery] = useState(DEFAULT_QUERY);
   const [selectedResult, setSelectedResult] = useState(null);
   const [sheetState, setSheetState] = useState(SHEET_STATES.DISCOVERY);
+  const [sheetPosition, setSheetPosition] = useState(SHEET_POSITIONS.EXPANDED);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStateRef = useRef({
+    pointerId: null,
+    startY: 0,
+    lastOffset: 0,
+    didDrag: false
+  });
   const { location, status, retryLocation } = useLocation();
   const hasSearchQuery = query.trim().length > 0;
   const results = useMemo(() => searchCampusLocations(query), [query]);
@@ -252,10 +296,25 @@ export default function HomePage() {
   const shouldShowResults = sheetState === SHEET_STATES.RESULTS && hasSearchQuery;
   const shouldShowDestination = sheetState === SHEET_STATES.SELECTED && selectedResult && routePreview;
   const shouldShowRoute = sheetState === SHEET_STATES.ROUTE && selectedResult && routePreview;
+  const isSheetExpanded = sheetPosition === SHEET_POSITIONS.EXPANDED;
+  const sheetLabelNoun =
+    sheetState === SHEET_STATES.RESULTS
+      ? "search results"
+      : sheetState === SHEET_STATES.DISCOVERY
+        ? "destination details"
+        : "destination details";
+  const sheetToggleLabel = `${isSheetExpanded ? "Collapse" : "Expand"} ${sheetLabelNoun}`;
+  const collapsedSummary = getCollapsedSheetSummary({
+    query,
+    routePreview,
+    sheetState,
+    visibleResultCount: visibleResults.length
+  });
 
   function selectResult(result) {
     setSelectedResult(result);
     setSheetState(SHEET_STATES.SELECTED);
+    setSheetPosition(SHEET_POSITIONS.EXPANDED);
   }
 
   function runDemoSearch(queryValue) {
@@ -294,7 +353,77 @@ export default function HomePage() {
   }
 
   function previewRoute() {
-    if (selectedResult) setSheetState(SHEET_STATES.ROUTE);
+    if (selectedResult) {
+      setSheetState(SHEET_STATES.ROUTE);
+      setSheetPosition(SHEET_POSITIONS.COLLAPSED);
+    }
+  }
+
+  function toggleSheetPosition() {
+    if (dragStateRef.current.didDrag) {
+      dragStateRef.current.didDrag = false;
+      return;
+    }
+
+    setSheetPosition((currentPosition) =>
+      currentPosition === SHEET_POSITIONS.EXPANDED
+        ? SHEET_POSITIONS.COLLAPSED
+        : SHEET_POSITIONS.EXPANDED
+    );
+  }
+
+  function startSheetDrag(event) {
+    dragStateRef.current = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      lastOffset: 0,
+      didDrag: false
+    };
+    setIsDragging(true);
+    setDragOffset(0);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  }
+
+  function moveSheetDrag(event) {
+    if (!isDragging || dragStateRef.current.pointerId !== event.pointerId) return;
+
+    const deltaY = event.clientY - dragStateRef.current.startY;
+    const nextOffset =
+      sheetPosition === SHEET_POSITIONS.EXPANDED
+        ? Math.max(0, deltaY)
+        : Math.min(0, deltaY);
+
+    dragStateRef.current.lastOffset = nextOffset;
+    if (Math.abs(deltaY) > 8) {
+      dragStateRef.current.didDrag = true;
+    }
+    setDragOffset(nextOffset);
+  }
+
+  function finishSheetDrag(event) {
+    if (!isDragging || dragStateRef.current.pointerId !== event.pointerId) return;
+
+    const finalOffset = dragStateRef.current.lastOffset;
+    const shouldCollapse =
+      sheetPosition === SHEET_POSITIONS.EXPANDED && finalOffset > SHEET_DRAG_THRESHOLD;
+    const shouldExpand =
+      sheetPosition === SHEET_POSITIONS.COLLAPSED && finalOffset < -SHEET_DRAG_THRESHOLD;
+
+    if (shouldCollapse) {
+      setSheetPosition(SHEET_POSITIONS.COLLAPSED);
+    } else if (shouldExpand) {
+      setSheetPosition(SHEET_POSITIONS.EXPANDED);
+    }
+
+    setDragOffset(0);
+    setIsDragging(false);
+    dragStateRef.current = {
+      pointerId: null,
+      startY: 0,
+      lastOffset: 0,
+      didDrag: dragStateRef.current.didDrag
+    };
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
   }
 
   return (
@@ -411,16 +540,29 @@ export default function HomePage() {
 
         <section
           aria-label="Destination panel"
-          className={`map-bottom-sheet map-bottom-sheet-${sheetState}`}
+          className={`map-bottom-sheet map-bottom-sheet-${sheetState} map-bottom-sheet-${sheetPosition} ${
+            isDragging ? "map-bottom-sheet-dragging" : ""
+          }`}
+          style={{ "--sheet-drag-offset": `${dragOffset}px` }}
         >
           <button
-            aria-label="Show destination options"
+            aria-expanded={isSheetExpanded}
+            aria-label={sheetToggleLabel}
             className="sheet-grab-handle"
-            onClick={() => setSheetState(SHEET_STATES.DISCOVERY)}
+            onClick={toggleSheetPosition}
+            onPointerCancel={finishSheetDrag}
+            onPointerDown={startSheetDrag}
+            onPointerMove={moveSheetDrag}
+            onPointerUp={finishSheetDrag}
             type="button"
           >
             <span />
           </button>
+
+          <div className="sheet-collapsed-summary" aria-hidden={isSheetExpanded}>
+            <strong>{collapsedSummary.title}</strong>
+            <span>{collapsedSummary.detail}</span>
+          </div>
 
           {sheetState === SHEET_STATES.DISCOVERY ? (
             <div className="sheet-panel-content">
@@ -522,8 +664,8 @@ export default function HomePage() {
             <div className="sheet-panel-content">
               <div className="sheet-heading-row">
                 <div>
-                  <p className="eyebrow">Destination Selected</p>
                   <h2>{routePreview.destinationLabel}</h2>
+                  <p className="eyebrow">Destination Selected</p>
                 </div>
                 <button className="sheet-text-button" onClick={changeDestination} type="button">
                   Change
@@ -572,8 +714,8 @@ export default function HomePage() {
             <div className="sheet-panel-content">
               <div className="sheet-heading-row">
                 <div>
-                  <p className="eyebrow">Route Preview</p>
                   <h2>{routePreview.destinationLabel}</h2>
+                  <p className="eyebrow">Route Preview</p>
                 </div>
                 <button className="sheet-text-button" onClick={changeDestination} type="button">
                   Change

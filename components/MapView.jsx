@@ -58,7 +58,7 @@ export default function MapView({ navigationData, location }) {
         </span>
         <span className="status-chip status-chip-ready">
           {routeDetails.estimatedWalkMinutes
-            ? `${routeDetails.estimatedWalkMinutes} min walk`
+            ? `${routeDetails.formattedWalkTime} walk`
             : "Waiting for distance estimate"}
         </span>
       </div>

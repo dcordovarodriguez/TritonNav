@@ -5,6 +5,7 @@ import {
   metersToFeet
 } from "@/lib/distance";
 import { reverseGeocodeCampusLocation } from "@/lib/reverseGeocode";
+import { formatDurationMinutes } from "@/lib/utils";
 
 export function buildRouteDetails({ destinationMeta, room, destination, googleMapsUrl }, origin) {
   const distanceMeters = calculateDistanceMeters(origin, destination);
@@ -26,6 +27,9 @@ export function buildRouteDetails({ destinationMeta, room, destination, googleMa
     distanceFeet: metersToFeet(distanceMeters),
     formattedDistanceFeet: formatDistanceFeet(distanceMeters),
     estimatedWalkMinutes,
+    formattedWalkTime: estimatedWalkMinutes
+      ? formatDurationMinutes(estimatedWalkMinutes)
+      : "",
     googleMapsUrl,
     originPlaceName: originPlace.name,
     originPlaceAddress: originPlace.address || "",
