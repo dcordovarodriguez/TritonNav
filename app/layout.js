@@ -1,3 +1,4 @@
+import "maplibre-gl/dist/maplibre-gl.css";
 import "@/styles/globals.css";
 import Navbar from "@/components/Layout/Navbar";
 import Container from "@/components/Layout/Container";

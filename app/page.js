@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
+import MapView from "@/components/MapView";
 import { useLocation } from "@/hooks/useLocation";
 import { calculateDistanceMeters, metersToFeet } from "@/lib/distance";
+import { createRouteLineString } from "@/lib/mapGeometry";
 import { buildNavigationHref, getNavigationData, searchCampusLocations } from "@/lib/navigation";
 import { formatDurationMinutes } from "@/lib/utils";
-import { createGoogleMapsEmbedUrl } from "@/services/mapsService";
 
 const DEFAULT_QUERY = "";
 const DEMO_SEARCHES = ["CSB 115", "MOS 0114", "MANDE B202", "DIB 122"];
@@ -35,10 +36,6 @@ const FALLBACK_ORIGIN = {
   lng: -117.23758,
   label: "Geisel Library"
 };
-const DEFAULT_MAP_CENTER = {
-  lat: 32.88006,
-  lng: -117.23401
-};
 const SHEET_STATES = {
   DISCOVERY: "discovery",
   RESULTS: "results",
@@ -53,8 +50,6 @@ const SHEET_DRAG_THRESHOLD = 56;
 const WALKING_METERS_PER_MINUTE = 80.4672;
 const METERS_PER_MILE = 1609.344;
 const FEET_PER_MILE = 5280;
-const MAP_LONGITUDE_SCALE = 14000;
-const MAP_LATITUDE_SCALE = 18000;
 
 function formatResultType(type) {
   if (!type) return "Destination";
@@ -93,10 +88,6 @@ function getLocationLabel(status, location) {
   if (status === "denied") return "Permission required";
   if (status === "unsupported") return "Location unavailable";
   return "Approximate campus area";
-}
-
-function clampMapPoint(value) {
-  return Math.min(92, Math.max(8, value));
 }
 
 function hasCoordinates(point) {
@@ -139,13 +130,6 @@ function buildRouteGeoPath(origin, destination) {
       ];
 }
 
-function projectRoutePoint(point, destination) {
-  return {
-    x: clampMapPoint(50 + (point.lng - destination.lng) * MAP_LONGITUDE_SCALE),
-    y: clampMapPoint(50 - (point.lat - destination.lat) * MAP_LATITUDE_SCALE)
-  };
-}
-
 function calculateRouteDistanceMeters(routePath, origin, destination) {
   if (routePath.length < 2) return calculateDistanceMeters(origin, destination);
 
@@ -156,41 +140,6 @@ function calculateRouteDistanceMeters(routePath, origin, destination) {
   }, 0);
 }
 
-function getRouteOverlayGeometry(origin, destination) {
-  if (!origin || !destination) {
-    return {
-      origin: { x: 30, y: 72 },
-      destination: { x: 50, y: 50 },
-      path: "30,72 50,50",
-      geoPath: []
-    };
-  }
-
-  const geoPath = buildRouteGeoPath(origin, destination);
-  const projectedPath = geoPath.map((point) => projectRoutePoint(point, destination));
-  const [originPoint] = projectedPath;
-  const destinationPoint = projectedPath[projectedPath.length - 1];
-
-  return {
-    origin: originPoint || { x: 30, y: 72 },
-    destination: destinationPoint || { x: 50, y: 50 },
-    path: projectedPath.map((point) => `${point.x},${point.y}`).join(" "),
-    geoPath
-  };
-}
-
-function getCollegeBoundaryOverlay(college) {
-  if (!college?.boundaryPolygon?.length || !college?.coordinates) return null;
-
-  const boundaryPoints = college.boundaryPolygon.map((point) =>
-    projectRoutePoint(point, college.coordinates)
-  );
-
-  return {
-    points: boundaryPoints.map((point) => `${point.x},${point.y}`).join(" ")
-  };
-}
-
 function formatRouteDistance(distanceMeters) {
   const feet = metersToFeet(distanceMeters);
   if (!feet) return "Distance unavailable";
@@ -199,8 +148,8 @@ function formatRouteDistance(distanceMeters) {
 }
 
 function buildRoutePreview({ origin, destination, destinationLabel, originLabel }) {
-  const routeGeometry = getRouteOverlayGeometry(origin, destination);
-  const distanceMeters = calculateRouteDistanceMeters(routeGeometry.geoPath, origin, destination);
+  const geoPath = buildRouteGeoPath(origin, destination);
+  const distanceMeters = calculateRouteDistanceMeters(geoPath, origin, destination);
   const walkMinutes = distanceMeters
     ? Math.max(1, Math.round(distanceMeters / WALKING_METERS_PER_MINUTE))
     : null;
@@ -210,11 +159,7 @@ function buildRoutePreview({ origin, destination, destinationLabel, originLabel 
     distanceLabel: formatRouteDistance(distanceMeters),
     walkTimeLabel: walkMinutes ? formatDurationMinutes(walkMinutes) : "Time unavailable",
     originLabel,
-    points: {
-      origin: routeGeometry.origin,
-      destination: routeGeometry.destination
-    },
-    path: routeGeometry.path
+    geoPath
   };
 }
 
@@ -275,8 +220,6 @@ export default function HomePage() {
     [location, selectedResult]
   );
   const destination = navigationData?.destination;
-  const mapCenter = destination || DEFAULT_MAP_CENTER;
-  const embedUrl = createGoogleMapsEmbedUrl(mapCenter, destination ? 18 : 16);
   const selectedKey = selectedResult
     ? `${selectedResult.buildingId}:${selectedResult.room || ""}`
     : "";
@@ -292,10 +235,18 @@ export default function HomePage() {
     : null;
   const selectedCollege = navigationData?.college;
   const selectedRecreationFacility = navigationData?.recreationFacility;
-  const collegeBoundary = getCollegeBoundaryOverlay(selectedCollege);
   const shouldShowResults = sheetState === SHEET_STATES.RESULTS && hasSearchQuery;
   const shouldShowDestination = sheetState === SHEET_STATES.SELECTED && selectedResult && routePreview;
   const shouldShowRoute = sheetState === SHEET_STATES.ROUTE && selectedResult && routePreview;
+  const routeLineGeometry =
+    shouldShowRoute && routePreview?.geoPath ? createRouteLineString(routePreview.geoPath) : null;
+  const mapMode = shouldShowRoute
+    ? "route"
+    : destination
+      ? "destination"
+      : location
+        ? "current-location"
+        : "default";
   const isSheetExpanded = sheetPosition === SHEET_POSITIONS.EXPANDED;
   const sheetLabelNoun =
     sheetState === SHEET_STATES.RESULTS
@@ -480,62 +431,17 @@ export default function HomePage() {
         </button>
 
         <div className="campus-map-frame">
-          {embedUrl ? (
-            <>
-              <iframe
-                allowFullScreen
-                height="100%"
-                loading="lazy"
-                src={embedUrl}
-                title={`Map centered on ${navigationData?.building.name || "UC San Diego"}`}
-                width="100%"
-              />
-              {routePreview ? (
-                <div className="route-preview-overlay" aria-hidden="true">
-                  <svg className="route-line-layer" viewBox="0 0 100 100" preserveAspectRatio="none">
-                    {collegeBoundary ? (
-                      <polygon className="college-boundary-fill" points={collegeBoundary.points} />
-                    ) : null}
-                    {collegeBoundary ? (
-                      <polygon className="college-boundary-line" points={collegeBoundary.points} />
-                    ) : null}
-                    {shouldShowRoute ? (
-                      <polyline
-                        className="route-line-shadow"
-                        fill="none"
-                        points={routePreview.path}
-                      />
-                    ) : null}
-                    {shouldShowRoute ? (
-                      <polyline
-                        className="route-line"
-                        fill="none"
-                        points={routePreview.path}
-                      />
-                    ) : null}
-                  </svg>
-                  {shouldShowRoute ? (
-                    <span
-                      className="route-marker route-marker-origin"
-                      style={{
-                        left: `${routePreview.points.origin.x}%`,
-                        top: `${routePreview.points.origin.y}%`
-                      }}
-                    />
-                  ) : null}
-                  <span
-                    className="route-marker route-marker-destination"
-                    style={{
-                      left: `${routePreview.points.destination.x}%`,
-                      top: `${routePreview.points.destination.y}%`
-                    }}
-                  />
-                </div>
-              ) : null}
-            </>
-          ) : (
-            <div className="map-empty-state">Select a destination.</div>
-          )}
+          <MapView
+            bottomSheetState={sheetPosition}
+            currentLocation={location}
+            currentLocationStatus={status}
+            fallbackLocation={FALLBACK_ORIGIN}
+            mapMode={mapMode}
+            navigationData={navigationData}
+            routeGeometry={routeLineGeometry}
+            selectedDestination={destination}
+            variant="homepage"
+          />
         </div>
 
         <section
@@ -744,7 +650,7 @@ export default function HomePage() {
                 className="sheet-primary-action"
                 href={buildNavigationHref(selectedResult.buildingId, selectedResult.room)}
               >
-                Start Route
+                Open Route Preview
               </Link>
             </div>
           ) : null}

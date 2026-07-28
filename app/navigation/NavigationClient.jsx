@@ -51,7 +51,7 @@ export default function NavigationClient() {
       <section className="section-block">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Live Route</p>
+            <p className="eyebrow">Route Preview</p>
             <h1>
               {navigationData.building.shortName}
               {navigationData.room ? ` ${navigationData.room}` : ""}
@@ -124,12 +124,12 @@ export default function NavigationClient() {
           </p>
           <p className="muted-copy">
             Use the embedded map for a quick preview, then hand off to Google Maps for live walking
-            navigation across campus.
+            directions across campus.
           </p>
         </div>
 
         <div className="navigation-grid">
-          <MapView navigationData={navigationData} location={location} />
+          <MapView navigationData={navigationData} location={location} mapMode="route" />
           <DirectionsPanel navigationData={navigationData} />
         </div>
       </section>
