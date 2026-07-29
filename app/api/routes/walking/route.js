@@ -19,6 +19,29 @@ function jsonResponse(body, status = 200) {
   });
 }
 
+function methodNotAllowedResponse() {
+  const response = createRouteErrorResponse(
+    new RoutingError(ROUTE_ERROR_CODES.METHOD_NOT_ALLOWED, "Method not allowed.")
+  );
+  return jsonResponse(response.body, response.status);
+}
+
+export function GET() {
+  return methodNotAllowedResponse();
+}
+
+export function PUT() {
+  return methodNotAllowedResponse();
+}
+
+export function PATCH() {
+  return methodNotAllowedResponse();
+}
+
+export function DELETE() {
+  return methodNotAllowedResponse();
+}
+
 export async function POST(request) {
   try {
     const rawBody = await request.text();

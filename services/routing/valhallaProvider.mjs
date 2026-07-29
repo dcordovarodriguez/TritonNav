@@ -33,7 +33,7 @@ export function buildValhallaRouteUrl(baseUrl) {
   return url.toString();
 }
 
-function getValhallaConfiguration() {
+export function getValhallaConfiguration() {
   const baseUrl = process.env.VALHALLA_BASE_URL;
 
   if (!baseUrl) {
@@ -44,6 +44,7 @@ function getValhallaConfiguration() {
   }
 
   const apiKeyHeader = process.env.VALHALLA_API_KEY_HEADER || "";
+  const apiKey = process.env.VALHALLA_API_KEY || "";
 
   if (apiKeyHeader && !HEADER_NAME_PATTERN.test(apiKeyHeader)) {
     throw new RoutingError(
@@ -52,9 +53,16 @@ function getValhallaConfiguration() {
     );
   }
 
+  if ((apiKey && !apiKeyHeader) || (!apiKey && apiKeyHeader)) {
+    throw new RoutingError(
+      ROUTE_ERROR_CODES.PROVIDER_CONFIGURATION,
+      "Walking routing provider authentication is not configured correctly."
+    );
+  }
+
   return {
     url: buildValhallaRouteUrl(baseUrl),
-    apiKey: process.env.VALHALLA_API_KEY || "",
+    apiKey,
     apiKeyHeader
   };
 }
@@ -134,6 +142,22 @@ function firstFiniteNumber(values) {
   return values.find((value) => isFiniteNumber(value)) ?? null;
 }
 
+function areSameCoordinate(left, right) {
+  return Array.isArray(left) && Array.isArray(right) && left[0] === right[0] && left[1] === right[1];
+}
+
+function getRouteWarnings(options = {}) {
+  const warnings = [];
+
+  if (options.wheelchair || options.avoidStairs) {
+    warnings.push(
+      "Accessibility preferences were preserved, but full wheelchair-accessible routing is not guaranteed by the current Valhalla pedestrian request."
+    );
+  }
+
+  return warnings;
+}
+
 export function normalizeValhallaRouteResponse(response, { origin, destination }) {
   const trip = response?.trip;
   const legs = Array.isArray(trip?.legs) ? trip.legs : [];
@@ -166,7 +190,11 @@ export function normalizeValhallaRouteResponse(response, { origin, destination }
     }
 
     const legCoordinates = decodeValhallaShape(leg.shape);
-    coordinates.push(...(coordinates.length ? legCoordinates.slice(1) : legCoordinates));
+    const nextCoordinates =
+      coordinates.length && areSameCoordinate(coordinates[coordinates.length - 1], legCoordinates[0])
+        ? legCoordinates.slice(1)
+        : legCoordinates;
+    coordinates.push(...nextCoordinates);
 
     const summary = leg.summary || {};
     const legDistanceMeters = metersFromKilometers(firstFiniteNumber([summary.length]));
@@ -181,10 +209,13 @@ export function normalizeValhallaRouteResponse(response, { origin, destination }
           instruction: maneuver.instruction || maneuver.verbal_post_transition_instruction || "",
           distanceMeters: metersFromKilometers(firstFiniteNumber([maneuver.length])),
           durationSeconds: secondsFromValue(firstFiniteNumber([maneuver.time, maneuver.travel_time])),
+          type: maneuver.type ?? null,
           maneuverType: maneuver.type ?? null,
-          streetName: Array.isArray(maneuver.street_names)
-            ? maneuver.street_names[0] || null
-            : maneuver.street_name || null,
+          streetNames: Array.isArray(maneuver.street_names)
+            ? maneuver.street_names
+            : maneuver.street_name
+              ? [maneuver.street_name]
+              : [],
           beginShapeIndex: maneuver.begin_shape_index ?? null,
           endShapeIndex: maneuver.end_shape_index ?? null
         }))
@@ -232,16 +263,13 @@ export async function requestValhallaWalkingRoute({ origin, destination, options
       { lat: destination.latitude, lon: destination.longitude, type: "break" }
     ],
     costing: "pedestrian",
+    units: "kilometers",
+    language: "en-US",
     directions_options: {
       units: "kilometers"
     }
   };
-
-  if (options.wheelchair || options.avoidStairs) {
-    body.costing_options = {
-      pedestrian: {}
-    };
-  }
+  const warnings = getRouteWarnings(options);
 
   try {
     const response = await fetch(configuration.url, {
@@ -258,8 +286,21 @@ export async function requestValhallaWalkingRoute({ origin, destination, options
       throw new RoutingError(code, "Walking routing provider could not calculate a route.");
     }
 
-    const payload = await response.json();
-    return normalizeValhallaRouteResponse(payload, { origin, destination });
+    let payload;
+    try {
+      payload = await response.json();
+    } catch {
+      throw new RoutingError(
+        ROUTE_ERROR_CODES.PROVIDER_RESPONSE,
+        "Walking routing provider returned malformed JSON."
+      );
+    }
+
+    const route = normalizeValhallaRouteResponse(payload, { origin, destination });
+    return {
+      ...route,
+      warnings: [...route.warnings, ...warnings]
+    };
   } catch (error) {
     if (error?.name === "AbortError") {
       throw new RoutingError(

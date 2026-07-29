@@ -334,6 +334,7 @@ export default function HomePage() {
         walkTimeLabel: formatRouteDurationSeconds(routeRequest.route.durationSeconds),
         originLabel: routePreview?.originLabel || "Route origin",
         steps: routeRequest.route.steps || [],
+        warnings: routeRequest.route.warnings || [],
         isEstimated: Boolean(routeRequest.route.isEstimated),
         provider: routeRequest.route.provider
       }
@@ -350,6 +351,8 @@ export default function HomePage() {
     distanceMeters: routeRequest.route?.distanceMeters || null,
     durationSeconds: routeRequest.route?.durationSeconds || null,
     maneuverSteps: routeRequest.route?.steps?.length || 0,
+    warnings: routeRequest.route?.warnings?.length || 0,
+    temporaryFallbackActive: routeRequest.status === ROUTE_STATES.TEMPORARY_FALLBACK,
     requestDurationMs: routeRequest.requestDurationMs
   };
   const routeLineGeometry =
@@ -913,6 +916,11 @@ export default function HomePage() {
                   ? "Outdoor walking guidance is separated from building and room arrival notes."
                   : "Accessibility preferences are coming soon. Current preview uses the campus walking estimate."}
               </p>
+              {routeRequest.status === ROUTE_STATES.SUCCESS && routeDisplay.warnings?.length ? (
+                <div className="inline-alert inline-alert-warning">
+                  <strong>Route note.</strong> {routeDisplay.warnings[0]}
+                </div>
+              ) : null}
               {routeRequest.status === ROUTE_STATES.SUCCESS && routeDisplay.steps?.length ? (
                 <details className="route-step-details">
                   <summary>Walking directions</summary>
@@ -998,6 +1006,14 @@ export default function HomePage() {
                     <div>
                       <dt>Maneuver steps</dt>
                       <dd>{routeDiagnostics.maneuverSteps}</dd>
+                    </div>
+                    <div>
+                      <dt>Warnings</dt>
+                      <dd>{routeDiagnostics.warnings}</dd>
+                    </div>
+                    <div>
+                      <dt>Temporary fallback</dt>
+                      <dd>{routeDiagnostics.temporaryFallbackActive ? "Yes" : "No"}</dd>
                     </div>
                     <div>
                       <dt>Request duration</dt>

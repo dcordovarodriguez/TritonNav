@@ -4,6 +4,7 @@ import {
   ROUTE_ERROR_CODES,
   RoutingError,
   createNormalizedWalkingRoute,
+  createRouteErrorResponse,
   validateLineStringGeometry,
   validateRouteEndpoints,
   validateWalkingRouteRequest
@@ -171,4 +172,50 @@ test("createNormalizedWalkingRoute rejects malformed geometry before MapView can
       durationSeconds: 180
     })
   );
+});
+
+test("normalizes route maneuver fields", () => {
+  const route = createNormalizedWalkingRoute({
+    geometry: {
+      type: "LineString",
+      coordinates: [
+        [-117.23758, 32.88114],
+        [-117.23698, 32.87962]
+      ]
+    },
+    distanceMeters: 220,
+    durationSeconds: 180,
+    steps: [
+      {
+        instruction: "Walk south.",
+        distanceMeters: 100,
+        durationSeconds: 75,
+        type: 1,
+        streetNames: ["Library Walk"],
+        beginShapeIndex: 0,
+        endShapeIndex: 1
+      }
+    ]
+  });
+
+  assert.deepEqual(route.steps[0], {
+    instruction: "Walk south.",
+    distanceMeters: 100,
+    durationSeconds: 75,
+    type: "1",
+    maneuverType: "1",
+    streetNames: ["Library Walk"],
+    streetName: "Library Walk",
+    beginShapeIndex: 0,
+    endShapeIndex: 1
+  });
+});
+
+test("maps unsupported methods to 405", () => {
+  const response = createRouteErrorResponse(
+    new RoutingError(ROUTE_ERROR_CODES.METHOD_NOT_ALLOWED, "Method not allowed.")
+  );
+
+  assert.equal(response.status, 405);
+  assert.equal(response.body.error.code, ROUTE_ERROR_CODES.METHOD_NOT_ALLOWED);
 });
