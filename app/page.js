@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import MapView from "@/components/MapView";
+import { getLocationById } from "@/data/locations";
 import { useLocation } from "@/hooks/useLocation";
 import { calculateDistanceMeters, metersToFeet } from "@/lib/distance";
 import { createRouteLineString } from "@/lib/mapGeometry";
 import { buildNavigationHref, getNavigationData, searchCampusLocations } from "@/lib/navigation";
 import { formatDurationMinutes } from "@/lib/utils";
+import { requestWalkingRoute } from "@/services/routingService.mjs";
 
 const DEFAULT_QUERY = "";
 const DEMO_SEARCHES = ["CSB 115", "MOS 0114", "MANDE B202", "DIB 122"];
@@ -36,11 +38,35 @@ const FALLBACK_ORIGIN = {
   lng: -117.23758,
   label: "Geisel Library"
 };
+const DEVELOPMENT_TEST_ORIGIN_IDS = [
+  "geisel-library",
+  "price-center",
+  "mandeville-center",
+  "warren-lecture-hall",
+  "sixth-college"
+];
+const DEVELOPMENT_TEST_ORIGINS = DEVELOPMENT_TEST_ORIGIN_IDS.map((id) => {
+  const location = getLocationById(id);
+  if (!location?.coordinates) return null;
+  return {
+    id,
+    label: location.name,
+    lat: location.coordinates.lat,
+    lng: location.coordinates.lng
+  };
+}).filter(Boolean);
 const SHEET_STATES = {
   DISCOVERY: "discovery",
   RESULTS: "results",
   SELECTED: "selected",
   ROUTE: "route"
+};
+const ROUTE_STATES = {
+  IDLE: "idle",
+  LOADING: "loading",
+  SUCCESS: "success",
+  ERROR: "error",
+  TEMPORARY_FALLBACK: "temporaryFallback"
 };
 const SHEET_POSITIONS = {
   EXPANDED: "expanded",
@@ -163,6 +189,48 @@ function buildRoutePreview({ origin, destination, destinationLabel, originLabel 
   };
 }
 
+function formatRouteDurationSeconds(durationSeconds) {
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return "Time unavailable";
+  return formatDurationMinutes(Math.max(1, Math.round(durationSeconds / 60)));
+}
+
+function buildRouteFeatureFromNormalizedRoute(route) {
+  if (!route?.geometry) return null;
+
+  return {
+    type: "Feature",
+    properties: {
+      provider: route.provider,
+      geometryType: route.isEstimated ? "temporary-preview" : "walking-route"
+    },
+    geometry: route.geometry
+  };
+}
+
+function getRouteErrorMessage(error) {
+  if (error?.code === "PROVIDER_CONFIGURATION") {
+    return "Walking routing is not configured yet.";
+  }
+
+  if (error?.code === "PROVIDER_TIMEOUT") {
+    return "Walking routing took too long to respond.";
+  }
+
+  if (error?.code === "PROVIDER_FAILURE") {
+    return "The walking route provider returned an error.";
+  }
+
+  if (error?.code === "PROVIDER_RESPONSE") {
+    return "The walking route provider returned route data TritonNav could not use.";
+  }
+
+  if (error?.code === "UNROUTABLE") {
+    return "TritonNav could not calculate a walking route for those coordinates.";
+  }
+
+  return error?.message || "Walking route could not be calculated.";
+}
+
 function getCollapsedSheetSummary({ query, routePreview, sheetState, visibleResultCount }) {
   if (sheetState === SHEET_STATES.SELECTED && routePreview) {
     return {
@@ -193,12 +261,24 @@ function getCollapsedSheetSummary({ query, routePreview, sheetState, visibleResu
 }
 
 export default function HomePage() {
+  const isDevelopment = process.env.NODE_ENV === "development";
   const [query, setQuery] = useState(DEFAULT_QUERY);
   const [selectedResult, setSelectedResult] = useState(null);
   const [sheetState, setSheetState] = useState(SHEET_STATES.DISCOVERY);
   const [sheetPosition, setSheetPosition] = useState(SHEET_POSITIONS.EXPANDED);
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [developmentOriginId, setDevelopmentOriginId] = useState("current");
+  const [routeRequest, setRouteRequest] = useState({
+    status: ROUTE_STATES.IDLE,
+    route: null,
+    error: "",
+    errorCode: "",
+    httpStatus: null,
+    requestDurationMs: null
+  });
+  const routeAbortRef = useRef(null);
+  const routeSequenceRef = useRef(0);
   const dragStateRef = useRef({
     pointerId: null,
     startY: 0,
@@ -206,6 +286,15 @@ export default function HomePage() {
     didDrag: false
   });
   const { location, status, retryLocation } = useLocation();
+  const developmentOrigin = isDevelopment && developmentOriginId !== "current"
+    ? DEVELOPMENT_TEST_ORIGINS.find((testOrigin) => testOrigin.id === developmentOriginId) || null
+    : null;
+  const routeOrigin = developmentOrigin || location || FALLBACK_ORIGIN;
+  const routeOriginLabel = developmentOrigin
+    ? `Development test origin: ${developmentOrigin.label}`
+    : location
+      ? "Current location"
+      : FALLBACK_ORIGIN.label;
   const hasSearchQuery = query.trim().length > 0;
   const results = useMemo(() => searchCampusLocations(query), [query]);
   const navigationData = useMemo(
@@ -214,23 +303,23 @@ export default function HomePage() {
         ? getNavigationData(
             selectedResult.buildingId,
             selectedResult.room,
-            location || FALLBACK_ORIGIN
+            routeOrigin
           )
         : null,
-    [location, selectedResult]
+    [routeOrigin, selectedResult]
   );
   const destination = navigationData?.destination;
   const selectedKey = selectedResult
     ? `${selectedResult.buildingId}:${selectedResult.room || ""}`
     : "";
   const visibleResults = results.slice(0, 6);
-  const origin = location || FALLBACK_ORIGIN;
+  const origin = routeOrigin;
   const routePreview = navigationData
     ? buildRoutePreview({
         origin,
         destination,
         destinationLabel: navigationData.routeDetails.destinationLabel,
-        originLabel: location ? "Current location" : FALLBACK_ORIGIN.label
+        originLabel: routeOriginLabel
       })
     : null;
   const selectedCollege = navigationData?.college;
@@ -238,8 +327,37 @@ export default function HomePage() {
   const shouldShowResults = sheetState === SHEET_STATES.RESULTS && hasSearchQuery;
   const shouldShowDestination = sheetState === SHEET_STATES.SELECTED && selectedResult && routePreview;
   const shouldShowRoute = sheetState === SHEET_STATES.ROUTE && selectedResult && routePreview;
+  const routeDisplay = routeRequest.route
+    ? {
+        destinationLabel: routePreview?.destinationLabel || navigationData?.routeDetails.destinationLabel,
+        distanceLabel: formatRouteDistance(routeRequest.route.distanceMeters),
+        walkTimeLabel: formatRouteDurationSeconds(routeRequest.route.durationSeconds),
+        originLabel: routePreview?.originLabel || "Route origin",
+        steps: routeRequest.route.steps || [],
+        isEstimated: Boolean(routeRequest.route.isEstimated),
+        provider: routeRequest.route.provider
+      }
+    : routePreview;
+  const routeDiagnostics = {
+    routeState: routeRequest.status,
+    origin,
+    destination,
+    httpStatus: routeRequest.httpStatus,
+    errorCode: routeRequest.errorCode,
+    provider: routeRequest.route?.provider || "",
+    isEstimated: routeRequest.route ? String(routeRequest.route.isEstimated) : "",
+    geometryCoordinates: routeRequest.route?.geometry?.coordinates?.length || 0,
+    distanceMeters: routeRequest.route?.distanceMeters || null,
+    durationSeconds: routeRequest.route?.durationSeconds || null,
+    maneuverSteps: routeRequest.route?.steps?.length || 0,
+    requestDurationMs: routeRequest.requestDurationMs
+  };
   const routeLineGeometry =
-    shouldShowRoute && routePreview?.geoPath ? createRouteLineString(routePreview.geoPath) : null;
+    shouldShowRoute && routeRequest.route
+      ? buildRouteFeatureFromNormalizedRoute(routeRequest.route)
+      : shouldShowRoute && routePreview?.geoPath && routeRequest.status === ROUTE_STATES.TEMPORARY_FALLBACK
+        ? createRouteLineString(routePreview.geoPath)
+        : null;
   const mapMode = shouldShowRoute
     ? "route"
     : destination
@@ -257,13 +375,22 @@ export default function HomePage() {
   const sheetToggleLabel = `${isSheetExpanded ? "Collapse" : "Expand"} ${sheetLabelNoun}`;
   const collapsedSummary = getCollapsedSheetSummary({
     query,
-    routePreview,
+    routePreview: routeDisplay,
     sheetState,
     visibleResultCount: visibleResults.length
   });
 
   function selectResult(result) {
+    routeAbortRef.current?.abort();
     setSelectedResult(result);
+    setRouteRequest({
+      status: ROUTE_STATES.IDLE,
+      route: null,
+      error: "",
+      errorCode: "",
+      httpStatus: null,
+      requestDurationMs: null
+    });
     setSheetState(SHEET_STATES.SELECTED);
     setSheetPosition(SHEET_POSITIONS.EXPANDED);
   }
@@ -289,24 +416,125 @@ export default function HomePage() {
   }
 
   function updateQuery(value) {
+    routeAbortRef.current?.abort();
     setQuery(value);
+    setRouteRequest({
+      status: ROUTE_STATES.IDLE,
+      route: null,
+      error: "",
+      errorCode: "",
+      httpStatus: null,
+      requestDurationMs: null
+    });
     setSheetState(value.trim() ? SHEET_STATES.RESULTS : SHEET_STATES.DISCOVERY);
   }
 
   function clearSearch() {
+    routeAbortRef.current?.abort();
     setQuery("");
+    setRouteRequest({
+      status: ROUTE_STATES.IDLE,
+      route: null,
+      error: "",
+      errorCode: "",
+      httpStatus: null,
+      requestDurationMs: null
+    });
     setSheetState(SHEET_STATES.DISCOVERY);
   }
 
   function changeDestination() {
+    routeAbortRef.current?.abort();
     setSelectedResult(null);
+    setRouteRequest({
+      status: ROUTE_STATES.IDLE,
+      route: null,
+      error: "",
+      errorCode: "",
+      httpStatus: null,
+      requestDurationMs: null
+    });
     setSheetState(query.trim() ? SHEET_STATES.RESULTS : SHEET_STATES.DISCOVERY);
   }
 
-  function previewRoute() {
+  async function previewRoute() {
+    if (!selectedResult || !hasCoordinates(origin) || !hasCoordinates(destination)) return;
+
+    routeAbortRef.current?.abort();
+    const controller = new AbortController();
+    const requestSequence = routeSequenceRef.current + 1;
+    const requestStartedAt = performance.now();
+    routeSequenceRef.current = requestSequence;
+    routeAbortRef.current = controller;
+
+    setSheetState(SHEET_STATES.ROUTE);
+    setSheetPosition(SHEET_POSITIONS.COLLAPSED);
+    setRouteRequest({
+      status: ROUTE_STATES.LOADING,
+      route: null,
+      error: "",
+      errorCode: "",
+      httpStatus: null,
+      requestDurationMs: null
+    });
+
+    try {
+      const route = await requestWalkingRoute({
+        origin,
+        destination,
+        signal: controller.signal
+      });
+
+      if (routeSequenceRef.current !== requestSequence) return;
+
+      setRouteRequest({
+        status: ROUTE_STATES.SUCCESS,
+        route,
+        error: "",
+        errorCode: "",
+        httpStatus: 200,
+        requestDurationMs: Math.round(performance.now() - requestStartedAt)
+      });
+    } catch (error) {
+      if (error?.name === "AbortError" || routeSequenceRef.current !== requestSequence) return;
+
+      if (error?.code === "PROVIDER_CONFIGURATION" && process.env.NODE_ENV !== "production") {
+        setRouteRequest({
+          status: ROUTE_STATES.TEMPORARY_FALLBACK,
+          route: null,
+          error: "Walking routing is not configured locally, so this is a temporary estimate.",
+          errorCode: error.code,
+          httpStatus: error.status || null,
+          requestDurationMs: Math.round(performance.now() - requestStartedAt)
+        });
+        return;
+      }
+
+      setRouteRequest({
+        status: ROUTE_STATES.ERROR,
+        route: null,
+        error: getRouteErrorMessage(error),
+        errorCode: error?.code || "ROUTE_REQUEST_FAILED",
+        httpStatus: error?.status || null,
+        requestDurationMs: Math.round(performance.now() - requestStartedAt)
+      });
+    }
+  }
+
+  function updateDevelopmentOrigin(event) {
+    routeAbortRef.current?.abort();
+    setDevelopmentOriginId(event.target.value);
+    setRouteRequest({
+      status: ROUTE_STATES.IDLE,
+      route: null,
+      error: "",
+      errorCode: "",
+      httpStatus: null,
+      requestDurationMs: null
+    });
     if (selectedResult) {
-      setSheetState(SHEET_STATES.ROUTE);
-      setSheetPosition(SHEET_POSITIONS.COLLAPSED);
+      setSheetState(SHEET_STATES.SELECTED);
+      setSheetPosition(SHEET_POSITIONS.EXPANDED);
     }
   }
 
@@ -418,6 +646,23 @@ export default function HomePage() {
               Search
             </button>
           </form>
+          {isDevelopment ? (
+            <div className="development-route-tools" aria-label="Development route testing">
+              <label htmlFor="development-origin">Development test origin</label>
+              <select
+                id="development-origin"
+                onChange={updateDevelopmentOrigin}
+                value={developmentOriginId}
+              >
+                <option value="current">Use current location</option>
+                {DEVELOPMENT_TEST_ORIGINS.map((testOrigin) => (
+                  <option key={testOrigin.id} value={testOrigin.id}>
+                    {testOrigin.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
         </div>
 
         <button
@@ -436,9 +681,11 @@ export default function HomePage() {
             currentLocation={location}
             currentLocationStatus={status}
             fallbackLocation={FALLBACK_ORIGIN}
+            allowEndpointRouteFallback={false}
             mapMode={mapMode}
             navigationData={navigationData}
             routeGeometry={routeLineGeometry}
+            routeIsEstimated={routeRequest.status !== ROUTE_STATES.SUCCESS}
             selectedDestination={destination}
             variant="homepage"
           />
@@ -620,38 +867,149 @@ export default function HomePage() {
             <div className="sheet-panel-content">
               <div className="sheet-heading-row">
                 <div>
-                  <h2>{routePreview.destinationLabel}</h2>
-                  <p className="eyebrow">Route Preview</p>
+                  <h2>{routeDisplay.destinationLabel}</h2>
+                  <p className="eyebrow">
+                    {routeRequest.status === ROUTE_STATES.SUCCESS
+                      ? "Walking Route Preview"
+                      : "Temporary Route Preview"}
+                  </p>
                 </div>
                 <button className="sheet-text-button" onClick={changeDestination} type="button">
                   Change
                 </button>
               </div>
+              {routeRequest.status === ROUTE_STATES.LOADING ? (
+                <div className="inline-alert">
+                  Calculating a walking route. The map will fit to the route when it is ready.
+                </div>
+              ) : null}
+              {routeRequest.status === ROUTE_STATES.ERROR ? (
+                <div className="inline-alert inline-alert-warning">
+                  <strong>Route unavailable.</strong> {routeRequest.error}
+                </div>
+              ) : null}
+              {routeRequest.status === ROUTE_STATES.TEMPORARY_FALLBACK ? (
+                <div className="inline-alert inline-alert-warning">
+                  <strong>Temporary route preview.</strong> {routeRequest.error}
+                </div>
+              ) : null}
               <div className="sheet-metric-grid">
                 <div>
                   <span>Origin</span>
-                  <strong>{routePreview.originLabel}</strong>
+                  <strong>{routeDisplay.originLabel}</strong>
                 </div>
                 <div>
-                  <span>Distance</span>
-                  <strong>{routePreview.distanceLabel}</strong>
+                  <span>{routeRequest.status === ROUTE_STATES.SUCCESS ? "Route distance" : "Est. distance"}</span>
+                  <strong>{routeDisplay.distanceLabel}</strong>
                 </div>
                 <div>
-                  <span>Walk time</span>
-                  <strong>{routePreview.walkTimeLabel}</strong>
+                  <span>{routeRequest.status === ROUTE_STATES.SUCCESS ? "Walk time" : "Est. walk time"}</span>
+                  <strong>{routeDisplay.walkTimeLabel}</strong>
                 </div>
               </div>
               <p className="sheet-summary">{navigationData.instructions}</p>
               <p className="sheet-supporting-copy">
-                Accessibility preferences are coming soon. Current preview uses the campus walking
-                estimate.
+                {routeRequest.status === ROUTE_STATES.SUCCESS
+                  ? "Outdoor walking guidance is separated from building and room arrival notes."
+                  : "Accessibility preferences are coming soon. Current preview uses the campus walking estimate."}
               </p>
-              <Link
-                className="sheet-primary-action"
-                href={buildNavigationHref(selectedResult.buildingId, selectedResult.room)}
-              >
-                Open Route Preview
-              </Link>
+              {routeRequest.status === ROUTE_STATES.SUCCESS && routeDisplay.steps?.length ? (
+                <details className="route-step-details">
+                  <summary>Walking directions</summary>
+                  <div className="route-step-preview-list">
+                    {routeDisplay.steps.slice(0, 5).map((step, index) => (
+                      <div className="route-step-preview-row" key={`${step.instruction}-${index}`}>
+                        <span>{index + 1}</span>
+                        <p>
+                          <strong>{step.instruction || "Continue on the walking route."}</strong>
+                          {step.streetName ? <small>{step.streetName}</small> : null}
+                          {step.distanceMeters ? (
+                            <small>{formatRouteDistance(step.distanceMeters)}</small>
+                          ) : null}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              ) : null}
+              <div className="route-sheet-actions">
+                <button className="sheet-primary-action" onClick={previewRoute} type="button">
+                  {routeRequest.status === ROUTE_STATES.LOADING ? "Calculating..." : "Retry Route"}
+                </button>
+                <Link
+                  className="secondary-link"
+                  href={buildNavigationHref(selectedResult.buildingId, selectedResult.room)}
+                >
+                  Open details
+                </Link>
+              </div>
+              {isDevelopment ? (
+                <details className="route-diagnostics-panel">
+                  <summary>Route diagnostics</summary>
+                  <dl>
+                    <div>
+                      <dt>Route state</dt>
+                      <dd>{routeDiagnostics.routeState}</dd>
+                    </div>
+                    <div>
+                      <dt>Origin</dt>
+                      <dd>
+                        {hasCoordinates(routeDiagnostics.origin)
+                          ? `${routeDiagnostics.origin.lat.toFixed(5)}, ${routeDiagnostics.origin.lng.toFixed(5)}`
+                          : "Unavailable"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Destination</dt>
+                      <dd>
+                        {hasCoordinates(routeDiagnostics.destination)
+                          ? `${routeDiagnostics.destination.lat.toFixed(5)}, ${routeDiagnostics.destination.lng.toFixed(5)}`
+                          : "Unavailable"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>HTTP status</dt>
+                      <dd>{routeDiagnostics.httpStatus || "None"}</dd>
+                    </div>
+                    <div>
+                      <dt>Error code</dt>
+                      <dd>{routeDiagnostics.errorCode || "None"}</dd>
+                    </div>
+                    <div>
+                      <dt>Provider</dt>
+                      <dd>{routeDiagnostics.provider || "None"}</dd>
+                    </div>
+                    <div>
+                      <dt>Estimated</dt>
+                      <dd>{routeDiagnostics.isEstimated || "None"}</dd>
+                    </div>
+                    <div>
+                      <dt>Geometry coords</dt>
+                      <dd>{routeDiagnostics.geometryCoordinates}</dd>
+                    </div>
+                    <div>
+                      <dt>Distance meters</dt>
+                      <dd>{routeDiagnostics.distanceMeters || "None"}</dd>
+                    </div>
+                    <div>
+                      <dt>Duration seconds</dt>
+                      <dd>{routeDiagnostics.durationSeconds || "None"}</dd>
+                    </div>
+                    <div>
+                      <dt>Maneuver steps</dt>
+                      <dd>{routeDiagnostics.maneuverSteps}</dd>
+                    </div>
+                    <div>
+                      <dt>Request duration</dt>
+                      <dd>
+                        {routeDiagnostics.requestDurationMs === null
+                          ? "None"
+                          : `${routeDiagnostics.requestDurationMs} ms`}
+                      </dd>
+                    </div>
+                  </dl>
+                </details>
+              ) : null}
             </div>
           ) : null}
         </section>

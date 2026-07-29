@@ -77,6 +77,7 @@ function getRouteCoordinates(routeGeometry) {
   return routeGeometry.geometry.coordinates.filter(
     (coordinate) =>
       Array.isArray(coordinate) &&
+      coordinate.length === 2 &&
       Number.isFinite(coordinate[0]) &&
       Number.isFinite(coordinate[1])
   );
@@ -166,6 +167,8 @@ export default function MapView({
   fallbackLocation = DEFAULT_CAMPUS_CENTER,
   selectedDestination = null,
   routeGeometry = null,
+  routeIsEstimated = true,
+  allowEndpointRouteFallback = process.env.NODE_ENV !== "production",
   bottomSheetState = "expanded",
   mapMode = "default",
   variant = "card"
@@ -197,7 +200,7 @@ export default function MapView({
   const hasDestinationCoordinates = hasValidMapPoint(destination);
   const mapRouteGeometry =
     routeGeometry ||
-    (hasValidMapPoint(markerOrigin) && hasDestinationCoordinates
+    (allowEndpointRouteFallback && hasValidMapPoint(markerOrigin) && hasDestinationCoordinates
       ? createRouteLineStringFromEndpoints(markerOrigin, destination)
       : null);
   const mapsUrl = useMemo(
@@ -448,7 +451,9 @@ export default function MapView({
         </div>
       ) : null}
       {mapMode === "route" && mapRouteGeometry ? (
-        <div className="maplibre-route-note">Temporary route preview</div>
+        <div className="maplibre-route-note">
+          {routeIsEstimated ? "Temporary route preview" : "Walking route preview"}
+        </div>
       ) : null}
     </div>
   );
