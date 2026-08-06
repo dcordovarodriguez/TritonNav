@@ -1,0 +1,58 @@
+# Portable Valhalla routing infrastructure for TritonNav.
+#
+# This compose file is prepared for a future UCSD-only local proof of concept.
+# It does not download OSM data or build tiles by itself. The helper scripts
+# validate prerequisites before starting the service.
+
+name: ${VALHALLA_COMPOSE_PROJECT_NAME:-tritonnav-routing}
+
+services:
+  valhalla:
+    image: ${VALHALLA_IMAGE:?Set VALHALLA_IMAGE in infrastructure/valhalla/.env}
+    platform: ${VALHALLA_PLATFORM:-linux/arm64}
+    profiles:
+      - routing
+    container_name: ${VALHALLA_CONTAINER_NAME:-tritonnav-valhalla}
+    restart: unless-stopped
+    ports:
+      - "${VALHALLA_API_PORT:-8002}:8002"
+    volumes:
+      - type: bind
+        source: ${VALHALLA_TILE_DIR:-./tiles}
+        target: /custom_files
+      - type: bind
+        source: ${VALHALLA_CONFIG_DIR:-./config}
+        target: /config
+        read_only: true
+      - type: bind
+        source: ${VALHALLA_OSM_DIR:-./osm}
+        target: /custom_files/osm
+        read_only: true
+      - type: bind
+        source: ${VALHALLA_CUSTOM_FILES_DIR:-./custom_files}
+        target: /tritonnav_custom_files
+        read_only: true
+      - type: bind
+        source: ${VALHALLA_LOG_DIR:-./logs}
+        target: /var/log/valhalla
+    environment:
+      # valhalla-scripted reads local PBF files from /custom_files and stores
+      # generated graph/config artifacts there. Keep these values conservative
+      # for an Apple Silicon laptop until the UCSD-only extract is available.
+      server_threads: ${VALHALLA_SERVER_THREADS:-2}
+      use_tiles_ignore_pbf: ${VALHALLA_USE_TILES_IGNORE_PBF:-False}
+      force_rebuild: ${VALHALLA_FORCE_REBUILD:-False}
+      build_elevation: ${VALHALLA_BUILD_ELEVATION:-False}
+      build_admins: ${VALHALLA_BUILD_ADMINS:-False}
+      build_time_zones: ${VALHALLA_BUILD_TIME_ZONES:-False}
+      build_tar: ${VALHALLA_BUILD_TAR:-True}
+      serve_tiles: ${VALHALLA_SERVE_TILES:-True}
+      tileset_name: ${VALHALLA_TILESET_NAME:-ucsd_valhalla_tiles}
+      path_extension: ${VALHALLA_PATH_EXTENSION:-}
+      tile_urls: ${VALHALLA_TILE_URLS:-/custom_files/osm/${VALHALLA_OSM_FILENAME}}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8002/status >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s

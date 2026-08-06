@@ -1,0 +1,20 @@
+#!/usr/bin/env sh
+set -eu
+
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+# shellcheck disable=SC1091
+. "${SCRIPT_DIR}/lib.sh"
+
+validate_common
+
+cd "${VALHALLA_DIR}"
+
+info "TritonNav Valhalla routing status"
+info "Image: ${VALHALLA_IMAGE}"
+info "Platform: ${VALHALLA_PLATFORM}"
+info "Host port: ${VALHALLA_API_PORT}"
+info "OSM file: $(resolve_path "${VALHALLA_OSM_DIR}")/${VALHALLA_OSM_FILENAME}"
+info "Tile dir: $(resolve_path "${VALHALLA_TILE_DIR}")"
+info "Config dir: $(resolve_path "${VALHALLA_CONFIG_DIR}")"
+info "Log dir: $(resolve_path "${VALHALLA_LOG_DIR}")"
+docker compose --profile routing ps

@@ -19,3 +19,21 @@ UCSD fonts:colors/
 .env*
 TritonNav_Xcode_Snapshot_2026-07-20/
 mobile view -tritonnav photos/
+
+# Self-hosted Valhalla generated data and local runtime artifacts
+infrastructure/valhalla/osm/*
+!infrastructure/valhalla/osm/.gitkeep
+!infrastructure/valhalla/osm/README.md
+infrastructure/valhalla/tiles/*
+!infrastructure/valhalla/tiles/.gitkeep
+!infrastructure/valhalla/tiles/README.md
+infrastructure/valhalla/logs/*
+!infrastructure/valhalla/logs/.gitkeep
+!infrastructure/valhalla/logs/README.md
+infrastructure/valhalla/custom_files/*
+!infrastructure/valhalla/custom_files/.gitkeep
+!infrastructure/valhalla/custom_files/README.md
+infrastructure/valhalla/config/*.local.*
+infrastructure/valhalla/.env
+infrastructure/valhalla/.env.*
+!infrastructure/valhalla/.env.example
