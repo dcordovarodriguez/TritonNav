@@ -16,10 +16,22 @@ services:
     restart: unless-stopped
     ports:
       - "${VALHALLA_API_PORT:-8002}:8002"
+    entrypoint:
+      - /bin/bash
+      - -lc
+    command:
+      - |
+        set -euo pipefail
+        cp "/input/${VALHALLA_OSM_FILENAME}" "/custom_files/${VALHALLA_OSM_FILENAME}"
+        exec /valhalla/scripts/docker-entrypoint.sh build_tiles
     volumes:
       - type: bind
         source: ${VALHALLA_TILE_DIR:-./tiles}
         target: /custom_files
+      - type: bind
+        source: ${VALHALLA_OSM_DIR:-./osm}/${VALHALLA_OSM_FILENAME}
+        target: /input/${VALHALLA_OSM_FILENAME}
+        read_only: true
       - type: bind
         source: ${VALHALLA_CONFIG_DIR:-./config}
         target: /config
@@ -49,9 +61,8 @@ services:
       serve_tiles: ${VALHALLA_SERVE_TILES:-True}
       tileset_name: ${VALHALLA_TILESET_NAME:-ucsd_valhalla_tiles}
       path_extension: ${VALHALLA_PATH_EXTENSION:-}
-      tile_urls: ${VALHALLA_TILE_URLS:-/custom_files/osm/${VALHALLA_OSM_FILENAME}}
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8002/status >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8002/status >/dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
