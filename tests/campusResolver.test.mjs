@@ -1,0 +1,101 @@
+import assert from "node:assert/strict";
+import { createRequire } from "node:module";
+import test from "node:test";
+
+const require = createRequire(import.meta.url);
+const campusResolver = require("../lib/campus/resolver.js");
+
+function assertCoordinate(coordinate) {
+  assert.equal(typeof coordinate?.lat, "number");
+  assert.equal(typeof coordinate?.lng, "number");
+  assert.ok(coordinate.lat > 32.87 && coordinate.lat < 32.89);
+  assert.ok(coordinate.lng < -117.22 && coordinate.lng > -117.25);
+}
+
+test("resolves GEISEL by building code", () => {
+  const building = campusResolver.resolveBuilding("GEISEL");
+  assert.equal(building?.id, "geisel-library");
+  assert.equal(building.code, "GEISEL");
+});
+
+test("resolves Geisel Library by building name", () => {
+  const building = campusResolver.resolveBuildingByName("Geisel Library");
+  assert.equal(building?.id, "geisel-library");
+});
+
+test("resolves Price Center by name", () => {
+  const destination = campusResolver.resolveCampusDestination("Price Center");
+  assert.equal(destination?.building.id, "price-center");
+  assert.equal(destination.kind, "building");
+  assertCoordinate(destination.destination);
+});
+
+test("resolves MANDE B202 as a room destination", () => {
+  const destination = campusResolver.resolveCampusDestination("MANDE B202");
+  assert.equal(destination?.building.id, "mandeville-center");
+  assert.equal(destination.room.number, "B202");
+  assert.equal(destination.entrance.id, "mandeville-lower");
+});
+
+test("resolves CSB 115 as a room destination", () => {
+  const destination = campusResolver.resolveCampusDestination("CSB 115");
+  assert.equal(destination?.building.id, "csb");
+  assert.equal(destination.room.number, "115");
+  assert.equal(destination.entrance.id, "csb-main-north");
+});
+
+test("resolves MOS 0114 as a room destination", () => {
+  const destination = campusResolver.resolveCampusDestination("MOS 0114");
+  assert.equal(destination?.building.id, "mos");
+  assert.equal(destination.room.number, "0114");
+  assert.equal(destination.entrance.id, "mos-ridge-walk");
+});
+
+test("resolves DIB 122 as a room destination", () => {
+  const destination = campusResolver.resolveCampusDestination("DIB 122");
+  assert.equal(destination?.building.id, "dib");
+  assert.equal(destination.room.number, "122");
+  assert.equal(destination.entrance.id, "dib-main");
+});
+
+test("resolves Sixth College", () => {
+  const destination = campusResolver.resolveCampusDestination("Sixth College");
+  assert.equal(destination?.building.id, "sixth-college");
+  assert.equal(destination.kind, "college");
+  assertCoordinate(destination.destination);
+});
+
+test("supports alias resolution", () => {
+  assert.equal(campusResolver.resolveBuildingByAlias("mande")?.id, "mandeville-center");
+  assert.equal(campusResolver.resolveBuildingByAlias("main library")?.id, "geisel-library");
+});
+
+test("supports building-code resolution", () => {
+  assert.equal(campusResolver.resolveBuildingByCode("PC")?.id, "price-center");
+  assert.equal(campusResolver.resolveBuildingByCode("MOS")?.id, "mos");
+});
+
+test("resolves a room to its building", () => {
+  const building = campusResolver.resolveRoomToBuilding("MANDE B202");
+  assert.equal(building?.id, "mandeville-center");
+});
+
+test("resolves a room to its preferred entrance", () => {
+  const entrance = campusResolver.resolveRoomToPreferredEntrance("CSB 115");
+  assert.equal(entrance?.id, "csb-main-north");
+  assertCoordinate(entrance.coordinates);
+});
+
+test("resolves supported destinations to routable coordinates", () => {
+  for (const query of [
+    "GEISEL",
+    "Price Center",
+    "MANDE B202",
+    "CSB 115",
+    "MOS 0114",
+    "DIB 122",
+    "Sixth College"
+  ]) {
+    assertCoordinate(campusResolver.resolveDestinationToRoutableCoordinate(query));
+  }
+});
