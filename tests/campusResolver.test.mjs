@@ -12,6 +12,11 @@ function assertCoordinate(coordinate) {
   assert.ok(coordinate.lng < -117.22 && coordinate.lng > -117.25);
 }
 
+function assertSameCoordinate(actual, expected) {
+  assert.equal(actual?.lat, expected?.lat);
+  assert.equal(actual?.lng, expected?.lng);
+}
+
 test("resolves GEISEL by building code", () => {
   const building = campusResolver.resolveBuilding("GEISEL");
   assert.equal(building?.id, "geisel-library");
@@ -28,6 +33,8 @@ test("resolves Price Center by name", () => {
   assert.equal(destination?.building.id, "price-center");
   assert.equal(destination.kind, "building");
   assertCoordinate(destination.destination);
+  assert.equal(destination.destinationSource, "entrance");
+  assert.equal(destination.entrance.id, "price-center-east-main");
 });
 
 test("resolves MANDE B202 as a room destination", () => {
@@ -98,4 +105,108 @@ test("resolves supported destinations to routable coordinates", () => {
   ]) {
     assertCoordinate(campusResolver.resolveDestinationToRoutableCoordinate(query));
   }
+});
+
+test("building destinations use preferred entrance coordinates instead of centroids", () => {
+  const destination = campusResolver.resolveCampusDestination("Price Center");
+  assert.equal(destination.destinationSource, "entrance");
+  assert.notDeepEqual(destination.destination, destination.building.centroid);
+  assertSameCoordinate(destination.destination, destination.entrance.coordinates);
+});
+
+test("room routable coordinates use preferred entrance coordinates instead of building centroids", () => {
+  const destination = campusResolver.resolveCampusDestination("MANDE B202");
+  assert.equal(destination.destinationSource, "entrance");
+  assert.equal(destination.entrance.id, "mandeville-lower");
+  assert.notDeepEqual(destination.destination, destination.building.centroid);
+  assertSameCoordinate(destination.destination, destination.entrance.coordinates);
+});
+
+test("room without its own preferred entrance inherits the building default entrance", () => {
+  const room = {
+    id: "test-room",
+    buildingId: "test-building",
+    number: "101",
+    preferredEntranceId: ""
+  };
+  const entrances = [
+    {
+      id: "test-secondary",
+      buildingId: "test-building",
+      type: "secondary",
+      accessible: true,
+      coordinates: { lat: 32.8801, lng: -117.2401 }
+    },
+    {
+      id: "test-main",
+      buildingId: "test-building",
+      type: "main",
+      accessible: true,
+      coordinates: { lat: 32.8802, lng: -117.2402 }
+    }
+  ];
+
+  assert.equal(campusResolver.selectEntranceForRoom(room, entrances)?.id, "test-main");
+});
+
+test("building routable coordinate falls back to centroid when no valid entrance exists", () => {
+  const building = {
+    id: "test-building",
+    centroid: { lat: 32.8805, lng: -117.2405 }
+  };
+
+  const resolved = campusResolver.resolveRoutableCoordinateForBuilding(building, {
+    id: "bad-entrance",
+    buildingId: "test-building",
+    coordinates: { lat: Number.NaN, lng: -117.2404 }
+  });
+
+  assert.equal(resolved.source, "centroid");
+  assertSameCoordinate(resolved.coordinates, building.centroid);
+});
+
+test("invalid or mismatched entrance references fail safely to the building entrance", () => {
+  const room = {
+    id: "test-room",
+    buildingId: "test-building",
+    number: "101",
+    preferredEntranceId: "wrong-building-entrance"
+  };
+  const entrances = [
+    {
+      id: "wrong-building-entrance",
+      buildingId: "other-building",
+      type: "main",
+      accessible: true,
+      coordinates: { lat: 32.881, lng: -117.241 }
+    },
+    {
+      id: "safe-building-entrance",
+      buildingId: "test-building",
+      type: "main",
+      accessible: true,
+      coordinates: { lat: 32.882, lng: -117.242 }
+    }
+  ];
+
+  assert.equal(campusResolver.selectEntranceForRoom(room, entrances)?.id, "safe-building-entrance");
+});
+
+test("routable coordinate details identify entrance versus centroid source", () => {
+  const details = campusResolver.resolveDestinationToRoutableCoordinateDetails("CSB 115");
+  assert.equal(details.source, "entrance");
+  assert.equal(details.entranceId, "csb-main-north");
+  assert.equal(details.buildingId, "csb");
+  assert.equal(details.roomId, "csb-115");
+  assertCoordinate(details.coordinate);
+});
+
+test("legacy building shape remains compatible for navigation consumers", () => {
+  const legacyBuilding = campusResolver.toLegacyBuilding(campusResolver.resolveBuilding("DIB"));
+  assert.equal(legacyBuilding.id, "dib");
+  assert.equal(legacyBuilding.shortName, "DIB");
+  assertCoordinate(legacyBuilding.coords);
+  assert.ok(Array.isArray(legacyBuilding.entrances));
+  assert.ok(Array.isArray(legacyBuilding.rooms));
+  assert.equal(legacyBuilding.rooms.find((room) => room.number === "122")?.nearestEntrance, "Main entrance");
 });
