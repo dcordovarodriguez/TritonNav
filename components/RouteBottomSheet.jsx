@@ -5,7 +5,24 @@ import { useNavigationStore } from "@/store/useNavigationStore";
 export default function RouteBottomSheet({ navigationData, locationStatus, onRetryLocation }) {
   const expanded = useNavigationStore((state) => state.bottomSheetExpanded);
   const toggleBottomSheet = useNavigationStore((state) => state.toggleBottomSheet);
-  const { building, room, instructions, routeDetails, googleMapsUrl, destinationType } = navigationData;
+  const {
+    building,
+    room,
+    instructions,
+    routeDetails,
+    googleMapsUrl,
+    destinationType,
+    selectedEntrance
+  } = navigationData;
+  const accessibilityLabel =
+    selectedEntrance?.accessible === true
+      ? "accessible entrance"
+      : selectedEntrance?.accessible === false
+        ? "accessibility unverified"
+        : selectedEntrance
+          ? "accessibility unknown"
+          : "";
+  const indoorDirections = navigationData.indoorDirections || routeDetails.indoorDirections;
 
   return (
     <aside className="route-bottom-sheet">
@@ -56,6 +73,30 @@ export default function RouteBottomSheet({ navigationData, locationStatus, onRet
           </div>
 
           <p className="route-sheet-copy">{instructions}</p>
+          {selectedEntrance ? (
+            <p className="route-sheet-copy">
+              Arrival: {selectedEntrance.name}
+              {accessibilityLabel ? ` (${accessibilityLabel})` : ""}
+            </p>
+          ) : null}
+          {indoorDirections ? (
+            <details className="route-step-details">
+              <summary>Inside building</summary>
+              <div className="route-step-preview-list">
+                {indoorDirections.summary ? (
+                  <p className="route-sheet-copy">{indoorDirections.summary}</p>
+                ) : null}
+                {indoorDirections.steps?.map((step, index) => (
+                  <div className="route-step-preview-row" key={`${step}-${index}`}>
+                    <span>{index + 1}</span>
+                    <p>
+                      <strong>{step}</strong>
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </details>
+          ) : null}
 
           <div className="route-sheet-actions">
             <a className="secondary-link" href={googleMapsUrl} rel="noreferrer" target="_blank">

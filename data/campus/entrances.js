@@ -5,8 +5,9 @@ const CAMPUS_ENTRANCES = [
     name: "Library Walk entrance",
     type: "main",
     coordinates: { lat: 32.88114, lng: -117.23758 },
+    routingAnchor: { lat: 32.88085, lng: -117.23753 },
     accessible: true,
-    notes: "Curated arrival point used by the existing campus fallback."
+    notes: "Physical arrival marker is kept at the legacy Geisel point; routing anchor snaps pedestrian routing onto Library Walk."
   },
   {
     id: "price-center-east-main",

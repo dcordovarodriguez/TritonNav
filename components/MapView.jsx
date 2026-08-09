@@ -44,6 +44,8 @@ const PUBLIC_FALLBACK_DESTINATION_ZOOM = 14;
 const ROUTE_SOURCE_ID = "tritonnav-preview-route";
 const ROUTE_SHADOW_LAYER_ID = "tritonnav-preview-route-shadow";
 const ROUTE_LAYER_ID = "tritonnav-preview-route-line";
+const ROUTE_CONNECTOR_SOURCE_ID = "tritonnav-route-display-connector";
+const ROUTE_CONNECTOR_LAYER_ID = "tritonnav-route-display-connector-line";
 
 maplibregl.setWorkerUrl("/maplibre-gl-worker.mjs");
 
@@ -159,6 +161,53 @@ function upsertRouteLayer(map, routeGeometry) {
   );
 }
 
+function upsertRouteConnectorLayer(map, routeConnectorGeometry) {
+  if (!map?.isStyleLoaded()) return;
+
+  if (!map.getSource(ROUTE_CONNECTOR_SOURCE_ID)) {
+    map.addSource(ROUTE_CONNECTOR_SOURCE_ID, {
+      type: "geojson",
+      data: routeConnectorGeometry || {
+        type: "Feature",
+        properties: {},
+        geometry: {
+          type: "LineString",
+          coordinates: []
+        }
+      }
+    });
+  }
+
+  if (!map.getLayer(ROUTE_CONNECTOR_LAYER_ID)) {
+    map.addLayer({
+      id: ROUTE_CONNECTOR_LAYER_ID,
+      type: "line",
+      source: ROUTE_CONNECTOR_SOURCE_ID,
+      layout: {
+        "line-cap": "round",
+        "line-join": "round"
+      },
+      paint: {
+        "line-color": "#102a4e",
+        "line-dasharray": [1, 1.6],
+        "line-opacity": 0.58,
+        "line-width": 3
+      }
+    });
+  }
+
+  map.getSource(ROUTE_CONNECTOR_SOURCE_ID)?.setData(
+    routeConnectorGeometry || {
+      type: "Feature",
+      properties: {},
+      geometry: {
+        type: "LineString",
+        coordinates: []
+      }
+    }
+  );
+}
+
 export default function MapView({
   navigationData = null,
   location = null,
@@ -167,6 +216,7 @@ export default function MapView({
   fallbackLocation = DEFAULT_CAMPUS_CENTER,
   selectedDestination = null,
   routeGeometry = null,
+  routeConnectorGeometry = null,
   routeIsEstimated = true,
   allowEndpointRouteFallback = process.env.NODE_ENV !== "production",
   bottomSheetState = "expanded",
@@ -258,6 +308,7 @@ export default function MapView({
         function handleMapReady() {
           if (cancelled) return;
           upsertRouteLayer(mapInstance, mapRouteGeometry);
+          upsertRouteConnectorLayer(mapInstance, routeConnectorGeometry);
           setLocalStatus("ready");
           setMapReady();
           requestAnimationFrame(() => mapInstance.resize());
@@ -347,6 +398,19 @@ export default function MapView({
 
     map.once("load", updateRoute);
   }, [mapRouteGeometry]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const updateConnector = () => upsertRouteConnectorLayer(map, routeConnectorGeometry);
+    if (map.isStyleLoaded()) {
+      updateConnector();
+      return;
+    }
+
+    map.once("load", updateConnector);
+  }, [routeConnectorGeometry]);
 
   useEffect(() => {
     const map = mapRef.current;

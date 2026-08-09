@@ -1058,6 +1058,40 @@ body:has(.map-first-page) {
   line-height: 1.35;
 }
 
+.indoor-directions-details {
+  background: rgba(248, 251, 255, 0.92);
+  border: 1px solid rgba(24, 43, 73, 0.1);
+  border-radius: 16px;
+  padding: 0.8rem 0.9rem;
+}
+
+.indoor-directions-details summary {
+  color: var(--ucsd-navy);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.indoor-directions-card {
+  color: var(--ucsd-navy);
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.indoor-directions-card p,
+.indoor-directions-card li {
+  line-height: 1.45;
+}
+
+.indoor-directions-card ol {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
 .sheet-primary-action {
   align-items: center;
   background: linear-gradient(135deg, var(--ucsd-gold), #ffde59);

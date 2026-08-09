@@ -7,7 +7,18 @@ import {
 import { reverseGeocodeCampusLocation } from "@/lib/reverseGeocode";
 import { formatDurationMinutes } from "@/lib/utils";
 
-export function buildRouteDetails({ destinationMeta, room, destination, googleMapsUrl }, origin) {
+export function buildRouteDetails({
+  destinationMeta,
+  room,
+  destination,
+  googleMapsUrl,
+  selectedEntrance = null,
+  destinationSource = "",
+  displayCoordinate = null,
+  routingCoordinate = null,
+  routingCoordinateSource = "",
+  indoorDirections = null
+}, origin) {
   const distanceMeters = calculateDistanceMeters(origin, destination);
   const estimatedWalkMinutes = estimateWalkingMinutes(distanceMeters);
   const originPlace = reverseGeocodeCampusLocation(origin);
@@ -23,6 +34,15 @@ export function buildRouteDetails({ destinationMeta, room, destination, googleMa
     destinationType: destinationMeta.type || "location",
     destinationAddress: destinationMeta.address || "UC San Diego, La Jolla, CA 92093",
     destinationNearbyLandmarks: destinationMeta.nearbyLandmarks || [],
+    destinationSource,
+    displayCoordinate,
+    routingCoordinate,
+    routingCoordinateSource,
+    entranceName: selectedEntrance?.name || "",
+    entranceType: selectedEntrance?.type || "",
+    entranceAccessible: selectedEntrance?.accessible ?? null,
+    entranceNotes: selectedEntrance?.notes || "",
+    indoorDirections,
     distanceMeters,
     distanceFeet: metersToFeet(distanceMeters),
     formattedDistanceFeet: formatDistanceFeet(distanceMeters),

@@ -49,8 +49,8 @@ const CAMPUS_PLACES = [
     name: "RIMAC",
     type: "recreation",
     aliases: ["rimac gym", "rimac arena", "rimac aux gym", "rimac fitness gym", "rimac rec"],
-    coordinates: { lat: 32.88548, lng: -117.23974 },
-    relatedBuildingId: null,
+    coordinates: { lat: 32.88531, lng: -117.23971 },
+    relatedBuildingId: "rimac-building",
     amenities: ["Fitness gym", "Arena", "Aux gym", "Table tennis", "Equipment checkout"],
     ctas: [
       { label: "Facility Hours", url: UCSD_REC_LINKS.facilityHours },
@@ -69,8 +69,8 @@ const CAMPUS_PLACES = [
     name: "Main Gym",
     type: "recreation",
     aliases: ["main gymnasium", "ucsd main gym", "rec gym", "main gym fitness"],
-    coordinates: { lat: 32.87595, lng: -117.24212 },
-    relatedBuildingId: null,
+    coordinates: { lat: 32.87715, lng: -117.24127 },
+    relatedBuildingId: "main-gym-building",
     amenities: ["Main gym floor", "Rec Gym", "Natatorium", "Equipment checkout"],
     ctas: [
       { label: "Facility Hours", url: UCSD_REC_LINKS.facilityHours },

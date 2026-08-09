@@ -4,6 +4,8 @@ import test from "node:test";
 
 const require = createRequire(import.meta.url);
 const campusResolver = require("../lib/campus/resolver.js");
+const { createCampusCoverageReport } = require("../lib/campus/coverageReport.js");
+const { createCampusSearchDocuments } = require("../lib/campus/searchDocuments.js");
 
 function assertCoordinate(coordinate) {
   assert.equal(typeof coordinate?.lat, "number");
@@ -33,7 +35,7 @@ test("resolves Price Center by name", () => {
   assert.equal(destination?.building.id, "price-center");
   assert.equal(destination.kind, "building");
   assertCoordinate(destination.destination);
-  assert.equal(destination.destinationSource, "entrance");
+  assert.equal(destination.destinationSource, "entrance-coordinate");
   assert.equal(destination.entrance.id, "price-center-east-main");
 });
 
@@ -109,17 +111,35 @@ test("resolves supported destinations to routable coordinates", () => {
 
 test("building destinations use preferred entrance coordinates instead of centroids", () => {
   const destination = campusResolver.resolveCampusDestination("Price Center");
-  assert.equal(destination.destinationSource, "entrance");
+  assert.equal(destination.destinationSource, "entrance-coordinate");
   assert.notDeepEqual(destination.destination, destination.building.centroid);
   assertSameCoordinate(destination.destination, destination.entrance.coordinates);
 });
 
 test("room routable coordinates use preferred entrance coordinates instead of building centroids", () => {
   const destination = campusResolver.resolveCampusDestination("MANDE B202");
-  assert.equal(destination.destinationSource, "entrance");
+  assert.equal(destination.destinationSource, "entrance-coordinate");
   assert.equal(destination.entrance.id, "mandeville-lower");
   assert.notDeepEqual(destination.destination, destination.building.centroid);
   assertSameCoordinate(destination.destination, destination.entrance.coordinates);
+});
+
+test("entrance routing anchors keep display and routing coordinates separate", () => {
+  const destination = campusResolver.resolveCampusDestination("Geisel Library");
+
+  assert.equal(destination.entrance.id, "geisel-library-main");
+  assert.equal(destination.destinationSource, "entrance-routing-anchor");
+  assertSameCoordinate(destination.displayCoordinate, destination.entrance.coordinates);
+  assertSameCoordinate(destination.routingCoordinate, destination.entrance.routingAnchor);
+  assert.notDeepEqual(destination.displayCoordinate, destination.routingCoordinate);
+});
+
+test("routable coordinate details expose display and routing metadata", () => {
+  const details = campusResolver.resolveDestinationToRoutableCoordinateDetails("Geisel Library");
+
+  assert.equal(details.routingCoordinateSource, "entrance-routing-anchor");
+  assertSameCoordinate(details.displayCoordinate, { lat: 32.88114, lng: -117.23758 });
+  assertSameCoordinate(details.routingCoordinate, { lat: 32.88085, lng: -117.23753 });
 });
 
 test("room without its own preferred entrance inherits the building default entrance", () => {
@@ -161,7 +181,7 @@ test("building routable coordinate falls back to centroid when no valid entrance
     coordinates: { lat: Number.NaN, lng: -117.2404 }
   });
 
-  assert.equal(resolved.source, "centroid");
+  assert.equal(resolved.source, "centroid-fallback");
   assertSameCoordinate(resolved.coordinates, building.centroid);
 });
 
@@ -194,11 +214,22 @@ test("invalid or mismatched entrance references fail safely to the building entr
 
 test("routable coordinate details identify entrance versus centroid source", () => {
   const details = campusResolver.resolveDestinationToRoutableCoordinateDetails("CSB 115");
-  assert.equal(details.source, "entrance");
+  assert.equal(details.source, "entrance-coordinate");
+  assert.equal(details.routingCoordinateSource, "entrance-coordinate");
   assert.equal(details.entranceId, "csb-main-north");
   assert.equal(details.buildingId, "csb");
   assert.equal(details.roomId, "csb-115");
   assertCoordinate(details.coordinate);
+});
+
+test("seeded classroom records include provisional indoor directions", () => {
+  for (const query of ["CSB 115", "MOS 0114", "MANDE B202", "DIB 122"]) {
+    const destination = campusResolver.resolveCampusDestination(query);
+
+    assert.equal(destination.indoorDirections?.source, "curated-provisional");
+    assert.ok(destination.indoorDirections.summary);
+    assert.ok(destination.indoorDirections.steps.length >= 3);
+  }
 });
 
 test("legacy building shape remains compatible for navigation consumers", () => {
@@ -209,4 +240,131 @@ test("legacy building shape remains compatible for navigation consumers", () => 
   assert.ok(Array.isArray(legacyBuilding.entrances));
   assert.ok(Array.isArray(legacyBuilding.rooms));
   assert.equal(legacyBuilding.rooms.find((room) => room.number === "122")?.nearestEntrance, "Main entrance");
+});
+
+test("campus search documents preserve required UI-facing destinations", () => {
+  const documents = createCampusSearchDocuments();
+
+  for (const query of ["Geisel Library", "Price Center", "Sixth College"]) {
+    assert.ok(documents.some((document) => document.name === query), `${query} search document missing`);
+  }
+
+  for (const roomName of ["CSB 115", "MOS 0114", "MANDE B202", "DIB 122"]) {
+    assert.ok(documents.some((document) => document.name === roomName), `${roomName} room document missing`);
+  }
+});
+
+test("campus search documents keep legacy result shape fields", () => {
+  const documents = createCampusSearchDocuments();
+  const room = documents.find((document) => document.name === "MANDE B202");
+
+  assert.equal(room.destinationId, "mandeville-center");
+  assert.equal(room.buildingId, "mandeville-center");
+  assert.equal(room.room, "B202");
+  assert.equal(room.type, "classroom");
+  assert.equal(room.shortName, "MANDE");
+  assert.equal(room.buildingCode, "MANDE");
+  assert.ok(Array.isArray(room.searchValues));
+});
+
+test("resolves Rita Atkinson aliases to the canonical housing record", () => {
+  for (const query of ["Rita", "Rita Atkinson", "Rita Atkinson Residences", "Rita L. Atkinson Residences", "RIAT"]) {
+    const destination = campusResolver.resolveCampusDestination(query);
+
+    assert.equal(destination?.building.id, "rita-atkinson-residences");
+    assert.equal(destination.destinationSource, "centroid-fallback");
+    assertCoordinate(destination.destination);
+  }
+});
+
+test("resolves first-batch Health Sciences destinations", () => {
+  for (const query of [
+    "Jacobs Medical Center",
+    "Moores Cancer Center",
+    "Shiley Eye Institute",
+    "Perlman Medical Offices",
+    "Sulpizio Cardiovascular Center",
+    "ACTRI"
+  ]) {
+    const destination = campusResolver.resolveCampusDestination(query);
+
+    assert.equal(destination?.building.district, "health-sciences");
+    assertCoordinate(destination.destination);
+  }
+});
+
+test("expanded search documents include district and official-name lookup values", () => {
+  const documents = createCampusSearchDocuments();
+  const rita = documents.find((document) => document.destinationId === "rita-atkinson-residences");
+  const jacobs = documents.find((document) => document.destinationId === "jacobs-medical-center");
+
+  assert.ok(rita);
+  assert.ok(rita.searchValues.includes("RIAT"));
+  assert.ok(rita.searchValues.includes("health-sciences"));
+  assert.ok(jacobs);
+  assert.ok(jacobs.searchValues.includes("Jacobs Medical Center"));
+});
+
+test("housing coverage explicitly discovers all eight undergraduate colleges", () => {
+  const report = createCampusCoverageReport();
+
+  assert.equal(report.housing.expectedColleges, 8);
+  assert.equal(report.housing.discoveredColleges, 8);
+  assert.equal(report.housing.colleges.length, 8);
+  assert.ok(report.housing.completeCollegeInventories.endsWith("/8"));
+});
+
+test("housing coverage reports imported and pending residential buildings", () => {
+  const report = createCampusCoverageReport();
+  const revelle = report.housing.colleges.find((college) => college.collegeId === "revelle-college");
+  const erc = report.housing.colleges.find((college) => college.collegeId === "roosevelt-college");
+  const eighth = report.housing.colleges.find((college) => college.collegeId === "eighth-college");
+
+  assert.ok(revelle);
+  assert.ok(revelle.residentialBuildingsDiscovered >= 9);
+  assert.ok(revelle.residentialBuildingsImported >= 4);
+  assert.ok(revelle.buildingsStillRequiringVerification.includes("Galathea Hall"));
+  assert.ok(erc);
+  assert.ok(erc.residentialBuildingsDiscovered >= 14);
+  assert.ok(erc.residentialBuildingsImported >= 5);
+  assert.ok(eighth);
+  assert.equal(eighth.residentialBuildingsImported, 0);
+  assert.ok(eighth.buildingsStillRequiringVerification.includes("Pulse"));
+});
+
+test("housing community search documents distinguish residential entity types", () => {
+  const documents = createCampusSearchDocuments();
+  const rita = documents.find((document) => document.name === "Rita Atkinson Residences");
+  const pepperWest = documents.find((document) => document.name === "Pepper Canyon West");
+  const pangea = documents.find((document) => document.name === "Pangea Apartments and Residence Halls");
+
+  assert.equal(rita?.typeLabel, "housing community");
+  assert.equal(rita.destinationId, "rita-atkinson-residences");
+  assert.equal(pepperWest?.typeLabel, "housing community");
+  assert.equal(pepperWest.coordinates, null);
+  assert.equal(pangea?.typeLabel, "housing community");
+  assert.ok(pangea.searchValues.includes("Pangea Residence Halls"));
+});
+
+test("individual residential buildings are searchable when official coordinates are available", () => {
+  const documents = createCampusSearchDocuments();
+
+  for (const name of ["Blake Hall", "Tenaya Hall", "Bates Hall", "Africa Hall", "Matthews Apartments A"]) {
+    const document = documents.find((entry) => entry.name === name);
+
+    assert.ok(document, `${name} search document missing`);
+    assert.ok(["residence hall", "apartment building"].includes(document.typeLabel));
+    assertCoordinate(document.coordinates);
+  }
+});
+
+test("campus coverage report summarizes first-batch data quality", () => {
+  const report = createCampusCoverageReport();
+
+  assert.ok(report.totals.buildings >= 54);
+  assert.ok(report.totals.districts >= 8);
+  assert.ok(report.buildingsByDistrict["health-sciences"] >= 6);
+  assert.ok(report.buildingsByCategory.health >= 5);
+  assert.ok(report.completeness.withCentroid >= report.totals.buildings);
+  assert.ok(report.gaps.missingEntranceCoordinates.includes("rita-atkinson-residences"));
 });

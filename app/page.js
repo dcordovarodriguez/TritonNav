@@ -7,7 +7,12 @@ import { getLocationById } from "@/data/locations";
 import { useLocation } from "@/hooks/useLocation";
 import { calculateDistanceMeters, metersToFeet } from "@/lib/distance";
 import { createRouteLineString } from "@/lib/mapGeometry";
-import { buildNavigationHref, getNavigationData, searchCampusLocations } from "@/lib/navigation";
+import {
+  buildNavigationHref,
+  getCampusRoutingPoint,
+  getNavigationData,
+  searchCampusLocations
+} from "@/lib/navigation";
 import { formatDurationMinutes } from "@/lib/utils";
 import { requestWalkingRoute } from "@/services/routingService.mjs";
 
@@ -48,11 +53,15 @@ const DEVELOPMENT_TEST_ORIGIN_IDS = [
 const DEVELOPMENT_TEST_ORIGINS = DEVELOPMENT_TEST_ORIGIN_IDS.map((id) => {
   const location = getLocationById(id);
   if (!location?.coordinates) return null;
+  const routingPoint = getCampusRoutingPoint(id);
   return {
     id,
     label: location.name,
-    lat: location.coordinates.lat,
-    lng: location.coordinates.lng
+    lat: routingPoint?.lat ?? location.coordinates.lat,
+    lng: routingPoint?.lng ?? location.coordinates.lng,
+    displayLat: routingPoint?.displayCoordinate?.lat ?? location.coordinates.lat,
+    displayLng: routingPoint?.displayCoordinate?.lng ?? location.coordinates.lng,
+    routingCoordinateSource: routingPoint?.source || "legacy-location"
   };
 }).filter(Boolean);
 const SHEET_STATES = {
@@ -260,6 +269,66 @@ function getCollapsedSheetSummary({ query, routePreview, sheetState, visibleResu
   };
 }
 
+function getArrivalSummary(routeDetails) {
+  if (!routeDetails?.entranceName) return "";
+
+  const accessibilityLabel =
+    routeDetails.entranceAccessible === true
+      ? "accessible entrance"
+      : routeDetails.entranceAccessible === false
+        ? "accessibility unverified"
+        : "accessibility unknown";
+
+  return `Arrival: ${routeDetails.entranceName} (${accessibilityLabel})`;
+}
+
+function hasIndoorDirections(indoorDirections) {
+  return Boolean(
+    indoorDirections?.summary ||
+      indoorDirections?.steps?.length ||
+      indoorDirections?.finalLandmark
+  );
+}
+
+function IndoorDirectionsDetails({ indoorDirections }) {
+  if (!hasIndoorDirections(indoorDirections)) return null;
+
+  return (
+    <details className="indoor-directions-details">
+      <summary>Inside building</summary>
+      <div className="indoor-directions-card">
+        {indoorDirections.summary ? <p>{indoorDirections.summary}</p> : null}
+        {indoorDirections.steps?.length ? (
+          <ol>
+            {indoorDirections.steps.map((step, index) => (
+              <li key={`${step}-${index}`}>{step}</li>
+            ))}
+          </ol>
+        ) : null}
+        {indoorDirections.finalLandmark ? (
+          <p className="sheet-supporting-copy">
+            Final landmark: {indoorDirections.finalLandmark}
+          </p>
+        ) : null}
+        {indoorDirections.source ? (
+          <p className="sheet-supporting-copy">
+            Provisional classroom guidance: {indoorDirections.source}
+          </p>
+        ) : null}
+      </div>
+    </details>
+  );
+}
+
+function createFinalConnectorGeometry(routingDestination, displayDestination) {
+  if (!hasCoordinates(routingDestination) || !hasCoordinates(displayDestination)) return null;
+
+  const connectorDistance = calculateDistanceMeters(routingDestination, displayDestination);
+  if (!connectorDistance || connectorDistance < 2 || connectorDistance > 80) return null;
+
+  return createRouteLineString([routingDestination, displayDestination]);
+}
+
 export default function HomePage() {
   const isDevelopment = process.env.NODE_ENV === "development";
   const [query, setQuery] = useState(DEFAULT_QUERY);
@@ -309,6 +378,7 @@ export default function HomePage() {
     [routeOrigin, selectedResult]
   );
   const destination = navigationData?.destination;
+  const routingDestination = navigationData?.routingDestination || destination;
   const selectedKey = selectedResult
     ? `${selectedResult.buildingId}:${selectedResult.room || ""}`
     : "";
@@ -317,13 +387,14 @@ export default function HomePage() {
   const routePreview = navigationData
     ? buildRoutePreview({
         origin,
-        destination,
+        destination: routingDestination,
         destinationLabel: navigationData.routeDetails.destinationLabel,
         originLabel: routeOriginLabel
       })
     : null;
   const selectedCollege = navigationData?.college;
   const selectedRecreationFacility = navigationData?.recreationFacility;
+  const arrivalSummary = getArrivalSummary(navigationData?.routeDetails);
   const shouldShowResults = sheetState === SHEET_STATES.RESULTS && hasSearchQuery;
   const shouldShowDestination = sheetState === SHEET_STATES.SELECTED && selectedResult && routePreview;
   const shouldShowRoute = sheetState === SHEET_STATES.ROUTE && selectedResult && routePreview;
@@ -343,6 +414,8 @@ export default function HomePage() {
     routeState: routeRequest.status,
     origin,
     destination,
+    routingDestination,
+    routingCoordinateSource: navigationData?.routingCoordinateSource || "",
     httpStatus: routeRequest.httpStatus,
     errorCode: routeRequest.errorCode,
     provider: routeRequest.route?.provider || "",
@@ -361,6 +434,10 @@ export default function HomePage() {
       : shouldShowRoute && routePreview?.geoPath && routeRequest.status === ROUTE_STATES.TEMPORARY_FALLBACK
         ? createRouteLineString(routePreview.geoPath)
         : null;
+  const routeConnectorGeometry =
+    shouldShowRoute && routeRequest.status === ROUTE_STATES.SUCCESS
+      ? createFinalConnectorGeometry(routingDestination, destination)
+      : null;
   const mapMode = shouldShowRoute
     ? "route"
     : destination
@@ -461,7 +538,7 @@ export default function HomePage() {
   }
 
   async function previewRoute() {
-    if (!selectedResult || !hasCoordinates(origin) || !hasCoordinates(destination)) return;
+    if (!selectedResult || !hasCoordinates(origin) || !hasCoordinates(routingDestination)) return;
 
     routeAbortRef.current?.abort();
     const controller = new AbortController();
@@ -484,7 +561,7 @@ export default function HomePage() {
     try {
       const route = await requestWalkingRoute({
         origin,
-        destination,
+        destination: routingDestination,
         signal: controller.signal
       });
 
@@ -688,6 +765,7 @@ export default function HomePage() {
             mapMode={mapMode}
             navigationData={navigationData}
             routeGeometry={routeLineGeometry}
+            routeConnectorGeometry={routeConnectorGeometry}
             routeIsEstimated={routeRequest.status !== ROUTE_STATES.SUCCESS}
             selectedDestination={destination}
             variant="homepage"
@@ -840,6 +918,10 @@ export default function HomePage() {
               <p className="sheet-summary">
                 {navigationData.instructions}
               </p>
+              {arrivalSummary ? (
+                <p className="sheet-supporting-copy">{arrivalSummary}</p>
+              ) : null}
+              <IndoorDirectionsDetails indoorDirections={navigationData.indoorDirections} />
               {selectedCollege ? (
                 <p className="sheet-supporting-copy">
                   {selectedCollege.associatedBuildings.slice(0, 3).join(", ")}
@@ -911,6 +993,10 @@ export default function HomePage() {
                 </div>
               </div>
               <p className="sheet-summary">{navigationData.instructions}</p>
+              {arrivalSummary ? (
+                <p className="sheet-supporting-copy">{arrivalSummary}</p>
+              ) : null}
+              <IndoorDirectionsDetails indoorDirections={navigationData.indoorDirections} />
               <p className="sheet-supporting-copy">
                 {routeRequest.status === ROUTE_STATES.SUCCESS
                   ? "Outdoor walking guidance is separated from building and room arrival notes."
@@ -974,6 +1060,18 @@ export default function HomePage() {
                           ? `${routeDiagnostics.destination.lat.toFixed(5)}, ${routeDiagnostics.destination.lng.toFixed(5)}`
                           : "Unavailable"}
                       </dd>
+                    </div>
+                    <div>
+                      <dt>Routing destination</dt>
+                      <dd>
+                        {hasCoordinates(routeDiagnostics.routingDestination)
+                          ? `${routeDiagnostics.routingDestination.lat.toFixed(5)}, ${routeDiagnostics.routingDestination.lng.toFixed(5)}`
+                          : "Unavailable"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Routing source</dt>
+                      <dd>{routeDiagnostics.routingCoordinateSource || "None"}</dd>
                     </div>
                     <div>
                       <dt>HTTP status</dt>
