@@ -61,10 +61,10 @@ export const useNavigationStore = create((set, get) => ({
           }
     ),
 
-  setUserLocationResolved: (userLocation) =>
+  setUserLocationResolved: (userLocation, status = "ready") =>
     set({
       userLocation,
-      userLocationStatus: "ready",
+      userLocationStatus: status,
       userLocationError: ""
     }),
 

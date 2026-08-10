@@ -553,6 +553,21 @@ button.primary-link:hover {
   color: #7a5a12;
 }
 
+.inline-alert-action {
+  align-items: center;
+  background: var(--ucsd-navy);
+  border: 0;
+  border-radius: var(--radius-pill);
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 0.82rem;
+  font-weight: 900;
+  justify-content: center;
+  margin-top: 10px;
+  min-height: 38px;
+  padding: 0 13px;
+}
+
 .search-suggestion-list {
   display: grid;
   gap: 10px;
@@ -745,6 +760,34 @@ body:has(.map-first-page) {
   width: 34px;
 }
 
+.maplibre-marker-utility {
+  align-items: center;
+  background: #ffffff;
+  border: 2px solid var(--ucsd-blue-strong);
+  box-shadow:
+    0 0 0 5px rgba(0, 98, 155, 0.12),
+    0 10px 22px rgba(24, 43, 73, 0.22);
+  color: var(--ucsd-navy);
+  display: grid;
+  font-size: 0.72rem;
+  font-weight: 950;
+  height: 28px;
+  place-items: center;
+  width: 28px;
+}
+
+.maplibre-marker-utility[data-utility-type="food"] {
+  border-color: var(--ucsd-gold-deep);
+}
+
+.maplibre-marker-utility[data-utility-type="restrooms"] {
+  border-color: #0b7a75;
+}
+
+.maplibre-marker-utility[data-utility-type="bike-racks"] {
+  border-color: var(--ucsd-blue-strong);
+}
+
 .maplibregl-ctrl-bottom-left,
 .maplibregl-ctrl-bottom-right {
   z-index: 2;
@@ -854,6 +897,229 @@ body:has(.map-first-page) {
   position: fixed;
   right: 0;
   z-index: var(--map-z-sheet);
+}
+
+.utility-rail-shell {
+  bottom: calc(min(56dvh, 500px) + 12px);
+  left: max(14px, env(safe-area-inset-left));
+  pointer-events: none;
+  position: fixed;
+  right: max(14px, env(safe-area-inset-right));
+  transition:
+    bottom 420ms cubic-bezier(0.2, 1.18, 0.22, 1),
+    transform 180ms ease;
+  z-index: calc(var(--map-z-sheet) - 1);
+}
+
+.utility-rail-shell-collapsed {
+  bottom: calc(118px + env(safe-area-inset-bottom));
+}
+
+.utility-rail {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(24, 43, 73, 0.1);
+  border-radius: 999px;
+  box-shadow: 0 16px 38px rgba(24, 43, 73, 0.16);
+  display: flex;
+  gap: 8px;
+  margin: 0 auto;
+  max-width: min(520px, 100%);
+  overflow-x: auto;
+  padding: 8px;
+  pointer-events: auto;
+  scroll-padding: 8px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+
+.utility-rail::after {
+  content: "";
+  flex: 0 0 10px;
+}
+
+.utility-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.utility-rail-item {
+  align-items: center;
+  background: rgba(24, 43, 73, 0.05);
+  border: 1px solid rgba(24, 43, 73, 0.08);
+  border-radius: 999px;
+  color: var(--ucsd-navy);
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 11px;
+  scroll-snap-align: start;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    min-width 180ms ease,
+    transform 160ms ease;
+}
+
+.utility-rail-item:hover,
+.utility-rail-item:focus-visible {
+  background: rgba(255, 205, 0, 0.14);
+  border-color: rgba(198, 146, 20, 0.26);
+  outline: none;
+}
+
+.utility-rail-item-active {
+  background: var(--ucsd-navy);
+  border-color: rgba(24, 43, 73, 0.32);
+  box-shadow: 0 10px 24px rgba(24, 43, 73, 0.18);
+  color: #ffffff;
+  min-width: 132px;
+}
+
+.utility-rail-icon {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.74);
+  border-radius: 999px;
+  color: var(--ucsd-navy);
+  display: inline-flex;
+  flex: 0 0 28px;
+  font-size: 0.78rem;
+  font-weight: 950;
+  height: 28px;
+  justify-content: center;
+}
+
+.utility-rail-label {
+  display: none;
+  font-size: 0.82rem;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.utility-rail-item-active .utility-rail-label {
+  display: inline;
+}
+
+.destination-intelligence-section {
+  background: rgba(248, 251, 255, 0.88);
+  border: 1px solid rgba(24, 43, 73, 0.09);
+  border-radius: 16px;
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+}
+
+.destination-section-heading {
+  align-items: baseline;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.destination-section-heading span {
+  color: var(--ucsd-blue-strong);
+  font-size: 0.72rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.destination-section-heading strong {
+  color: var(--ucsd-navy);
+  font-size: 0.86rem;
+  font-weight: 950;
+  text-align: right;
+}
+
+.nearby-utility-list,
+.room-lookup-list {
+  display: grid;
+  gap: 8px;
+}
+
+.nearby-utility-row {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 30px 1fr;
+}
+
+.nearby-utility-dot {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid rgba(0, 98, 155, 0.18);
+  border-radius: 999px;
+  color: var(--ucsd-blue-strong);
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 950;
+  height: 30px;
+  justify-content: center;
+  width: 30px;
+}
+
+.nearby-utility-row strong,
+.nearby-utility-row small {
+  display: block;
+}
+
+.nearby-utility-row strong {
+  color: var(--ucsd-navy);
+  font-size: 0.9rem;
+  line-height: 1.2;
+}
+
+.nearby-utility-row small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.room-lookup-input {
+  background: #ffffff;
+  border: 1px solid rgba(24, 43, 73, 0.12);
+  border-radius: 13px;
+  color: var(--ucsd-navy);
+  min-height: 42px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.room-lookup-input:focus {
+  border-color: rgba(0, 98, 155, 0.42);
+  box-shadow: 0 0 0 3px rgba(0, 98, 155, 0.1);
+  outline: none;
+}
+
+.room-lookup-row {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid rgba(24, 43, 73, 0.09);
+  border-radius: 13px;
+  color: var(--ucsd-navy);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 50px;
+  padding: 10px;
+  text-align: left;
+}
+
+.room-lookup-row strong,
+.room-lookup-row small {
+  display: block;
+}
+
+.room-lookup-row strong {
+  font-size: 0.9rem;
+}
+
+.room-lookup-row small,
+.room-lookup-row > span:last-child {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 850;
 }
 
 .sheet-grab-handle {
@@ -1745,7 +2011,8 @@ body:has(.map-first-page) {
 .status-chip-loading,
 .status-chip-idle,
 .status-chip-prompt,
-.status-chip-unknown {
+.status-chip-unknown,
+.status-chip-outside {
   background: rgba(255, 205, 0, 0.14);
   border-color: rgba(198, 146, 20, 0.18);
   color: #8a6712;
@@ -2348,16 +2615,15 @@ body:has(.map-first-page) .site-container {
 }
 
 .map-first-page .map-location-button {
-  bottom: auto;
   background: var(--ucsd-blue-strong);
   border-color: rgba(255, 255, 255, 0.18);
   box-shadow: 0 12px 28px rgba(24, 43, 73, 0.22);
   font-size: 0.85rem;
   font-weight: 900;
-  left: max(16px, env(safe-area-inset-left));
+  justify-self: start;
   min-height: 43px;
   padding: 0 14px;
-  top: calc(max(16px, env(safe-area-inset-top)) + 116px);
+  position: static;
   z-index: var(--map-z-control);
 }
 

@@ -5,6 +5,7 @@ const { CAMPUS_ENTRANCES } = require("./entrances.js");
 const { UNDERGRADUATE_COLLEGE_HOUSING, UPPER_DIVISION_HOUSING } = require("./housing.js");
 const { CAMPUS_PLACES } = require("./places.js");
 const { CAMPUS_ROOMS } = require("./rooms.js");
+const { CAMPUS_UTILITIES, UTILITY_CATEGORIES } = require("./utilities.js");
 
 module.exports = {
   CAMPUS_BUILDINGS,
@@ -14,6 +15,8 @@ module.exports = {
   UNDERGRADUATE_COLLEGE_HOUSING,
   CAMPUS_PLACES,
   CAMPUS_ROOMS,
+  CAMPUS_UTILITIES,
+  UTILITY_CATEGORIES,
   UPPER_DIVISION_HOUSING,
   default: {
     buildings: CAMPUS_BUILDINGS,
@@ -25,6 +28,8 @@ module.exports = {
       upperDivision: UPPER_DIVISION_HOUSING
     },
     places: CAMPUS_PLACES,
-    rooms: CAMPUS_ROOMS
+    rooms: CAMPUS_ROOMS,
+    utilities: CAMPUS_UTILITIES,
+    utilityCategories: UTILITY_CATEGORIES
   }
 };

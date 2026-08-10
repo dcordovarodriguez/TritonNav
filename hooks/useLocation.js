@@ -1,152 +1,81 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useMemo } from "react";
+import campusBounds from "@/lib/campus/campusBounds";
 import { useNavigationStore } from "@/store/useNavigationStore";
+
+const { getUcsdRoutingCoverage } = campusBounds;
+
+function getGeolocationErrorMessage(error) {
+  if (error?.code === error?.PERMISSION_DENIED) {
+    return "Location permission was denied. You can still preview routes from campus.";
+  }
+
+  if (error?.code === error?.TIMEOUT) {
+    return "TritonNav could not get your location before the request timed out.";
+  }
+
+  return "Your device location is unavailable right now.";
+}
 
 export function useLocation() {
   const location = useNavigationStore((state) => state.userLocation);
   const status = useNavigationStore((state) => state.userLocationStatus);
   const permission = useNavigationStore((state) => state.userLocationPermission);
-  const requestId = useNavigationStore((state) => state.userLocationRequestId);
   const error = useNavigationStore((state) => state.userLocationError);
   const setUserLocationRequested = useNavigationStore((state) => state.setUserLocationRequested);
   const setUserLocationResolved = useNavigationStore((state) => state.setUserLocationResolved);
   const setUserLocationFailed = useNavigationStore((state) => state.setUserLocationFailed);
   const setUserLocationPermission = useNavigationStore((state) => state.setUserLocationPermission);
   const resetUserLocationState = useNavigationStore((state) => state.resetUserLocationState);
-  const watchIdRef = useRef(null);
+  const coverage = useMemo(() => getUcsdRoutingCoverage(location), [location]);
 
-  useEffect(() => {
-    if (typeof navigator === "undefined") return;
-
-    let isActive = true;
-    let permissionStatus;
-
-    function stopWatching() {
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-        watchIdRef.current = null;
-      }
-    }
-
-    if (!("geolocation" in navigator)) {
+  function requestCurrentLocation() {
+    if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
       setUserLocationPermission("unsupported");
       setUserLocationFailed("Geolocation is not available in this browser.", "unsupported");
       return;
     }
 
-    function startWatching() {
-      if (watchIdRef.current !== null) return;
+    setUserLocationRequested();
 
-      setUserLocationRequested();
-      watchIdRef.current = navigator.geolocation.watchPosition(
-        (position) => {
-          if (!isActive) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const nextLocation = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        };
+        const nextCoverage = getUcsdRoutingCoverage(nextLocation);
 
-          setUserLocationPermission("granted");
-          setUserLocationResolved({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-        },
-        (geoError) => {
-          if (!isActive) return;
+        setUserLocationPermission("granted");
+        setUserLocationResolved(nextLocation, nextCoverage.isInside ? "ready" : "outside");
+      },
+      (geoError) => {
+        const nextStatus = geoError.code === geoError.PERMISSION_DENIED ? "denied" : "error";
 
-          const message =
-            geoError.code === geoError.PERMISSION_DENIED
-              ? "Location permission was denied, so the route is using a simple fallback."
-              : geoError.code === geoError.TIMEOUT
-                ? "We could not update your location in time, so the route is using a simple fallback."
-                : "Live location updates are temporarily unavailable, so the route is using a simple fallback.";
-
-          const nextStatus =
-            geoError.code === geoError.PERMISSION_DENIED ? "denied" : "error";
-
-          if (geoError.code === geoError.PERMISSION_DENIED) {
-            setUserLocationPermission("denied");
-            stopWatching();
-          }
-
-          setUserLocationFailed(message, nextStatus);
-        },
-        { enableHighAccuracy: true, maximumAge: 15000, timeout: 10000 }
-      );
-    }
-
-    async function prepareWatcher() {
-      if (!navigator.permissions?.query) {
-        startWatching();
-        return;
-      }
-
-      try {
-        permissionStatus = await navigator.permissions.query({ name: "geolocation" });
-        if (!isActive) return;
-
-        setUserLocationPermission(permissionStatus.state);
-
-        if (permissionStatus.state === "denied") {
-          setUserLocationFailed(
-            "Location permission was denied, so the route is using a simple fallback.",
-            "denied"
-          );
-        } else {
-          startWatching();
+        if (geoError.code === geoError.PERMISSION_DENIED) {
+          setUserLocationPermission("denied");
         }
 
-        permissionStatus.onchange = () => {
-          if (!isActive) return;
+        setUserLocationFailed(getGeolocationErrorMessage(geoError), nextStatus);
+      },
+      { enableHighAccuracy: true, maximumAge: 15000, timeout: 10000 }
+    );
+  }
 
-          setUserLocationPermission(permissionStatus.state);
-
-          if (permissionStatus.state === "denied") {
-            stopWatching();
-            setUserLocationFailed(
-              "Location permission was denied, so the route is using a simple fallback.",
-              "denied"
-            );
-            return;
-          }
-
-          if (permissionStatus.state === "prompt") {
-            stopWatching();
-            setUserLocationPermission("prompt");
-            setUserLocationRequested();
-            startWatching();
-            return;
-          }
-
-          startWatching();
-        };
-      } catch {
-        startWatching();
-      }
-    }
-
-    prepareWatcher();
-
-    return () => {
-      isActive = false;
-      stopWatching();
-      if (permissionStatus) {
-        permissionStatus.onchange = null;
-      }
-    };
-  }, [
-    resetUserLocationState,
-    setUserLocationFailed,
-    setUserLocationPermission,
-    setUserLocationRequested,
-    setUserLocationResolved,
-    requestId
-  ]);
+  function retryLocation() {
+    resetUserLocationState();
+    requestCurrentLocation();
+  }
 
   return {
     location,
     status,
     permission,
-    isLocating: status === "idle" || status === "loading",
+    coverage,
+    isLocating: status === "loading",
     error,
-    retryLocation: resetUserLocationState
+    requestCurrentLocation,
+    retryLocation
   };
 }

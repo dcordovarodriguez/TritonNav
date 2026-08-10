@@ -214,9 +214,11 @@ export default function MapView({
   currentLocation = null,
   currentLocationStatus = "idle",
   fallbackLocation = DEFAULT_CAMPUS_CENTER,
+  focusCurrentLocationKey = "",
   selectedDestination = null,
   routeGeometry = null,
   routeConnectorGeometry = null,
+  utilityMarkers = [],
   routeIsEstimated = true,
   allowEndpointRouteFallback = process.env.NODE_ENV !== "production",
   bottomSheetState = "expanded",
@@ -238,6 +240,7 @@ export default function MapView({
   const mapRef = useRef(null);
   const currentMarkerRef = useRef(null);
   const destinationMarkerRef = useRef(null);
+  const utilityMarkerRefs = useRef([]);
   const lastCameraKeyRef = useRef("");
   const [localStatus, setLocalStatus] = useState("loading");
   const [localError, setLocalError] = useState("");
@@ -340,9 +343,11 @@ export default function MapView({
       cancelled = true;
       currentMarkerRef.current?.remove();
       destinationMarkerRef.current?.remove();
+      utilityMarkerRefs.current.forEach((marker) => marker.remove());
       mapRef.current?.remove();
       currentMarkerRef.current = null;
       destinationMarkerRef.current = null;
+      utilityMarkerRefs.current = [];
       mapRef.current = null;
     };
   }, [setMapFailed, setMapLoading, setMapReady, styleUrl]);
@@ -385,6 +390,31 @@ export default function MapView({
       .setLngLat(toLngLat(destination))
       .addTo(map);
   }, [destination, hasDestinationCoordinates]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    utilityMarkerRefs.current.forEach((marker) => marker.remove());
+    utilityMarkerRefs.current = [];
+
+    for (const item of utilityMarkers) {
+      if (!hasValidMapPoint(item.coordinates)) continue;
+
+      const element = createMarkerElement(
+        "maplibre-marker-utility",
+        item.name || "Nearby campus utility"
+      );
+      element.dataset.utilityType = item.categoryId || "utility";
+      element.textContent = item.iconLabel || "";
+
+      utilityMarkerRefs.current.push(
+        new maplibregl.Marker({ element })
+          .setLngLat(toLngLat(item.coordinates))
+          .addTo(map)
+      );
+    }
+  }, [utilityMarkers]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -474,6 +504,26 @@ export default function MapView({
     localStatus,
     mapMode,
     mapRouteGeometry,
+    markerOrigin,
+    usesPublicFallbackStyle,
+    variant
+  ]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || localStatus !== "ready" || !focusCurrentLocationKey) return;
+    if (!hasValidMapPoint(markerOrigin)) return;
+
+    map.easeTo({
+      center: toLngLat(markerOrigin),
+      duration: 520,
+      padding: getCameraPadding(variant, bottomSheetState),
+      zoom: usesPublicFallbackStyle ? PUBLIC_FALLBACK_DESTINATION_ZOOM : 16.4
+    });
+  }, [
+    bottomSheetState,
+    focusCurrentLocationKey,
+    localStatus,
     markerOrigin,
     usesPublicFallbackStyle,
     variant

@@ -5,6 +5,12 @@ import test from "node:test";
 const require = createRequire(import.meta.url);
 const campusResolver = require("../lib/campus/resolver.js");
 const { createCampusCoverageReport } = require("../lib/campus/coverageReport.js");
+const {
+  createDestinationIntelligence,
+  getNearbyUtilities,
+  getRoomsForBuilding,
+  UTILITY_CATEGORIES
+} = require("../lib/campus/destinationIntelligence.js");
 const { createCampusSearchDocuments } = require("../lib/campus/searchDocuments.js");
 
 function assertCoordinate(coordinate) {
@@ -356,6 +362,61 @@ test("individual residential buildings are searchable when official coordinates 
     assert.ok(["residence hall", "apartment building"].includes(document.typeLabel));
     assertCoordinate(document.coordinates);
   }
+});
+
+test("destination intelligence exposes configurable utility categories", () => {
+  assert.deepEqual(
+    UTILITY_CATEGORIES.map((category) => category.id),
+    ["bike-racks", "restrooms", "room-lookup", "food"]
+  );
+});
+
+test("destination intelligence ranks nearby utilities by destination context", () => {
+  const destination = campusResolver.resolveCampusDestination("Price Center");
+  const navigationData = {
+    building: campusResolver.toLegacyBuilding(destination.building),
+    selectedEntrance: destination.entrance,
+    routeDetails: {
+      destinationLabel: "Price Center",
+      destinationType: "student center"
+    },
+    displayCoordinate: destination.displayCoordinate,
+    destination: destination.displayCoordinate
+  };
+  const restrooms = getNearbyUtilities("restrooms", navigationData);
+
+  assert.equal(restrooms[0]?.id, "restroom-price-center-single-occupancy");
+  assert.ok(restrooms[0].distanceMeters < 220);
+});
+
+test("destination intelligence room lookup uses known room records only", () => {
+  const rooms = getRoomsForBuilding("mandeville-center");
+
+  assert.ok(rooms.some((room) => room.number === "B202"));
+  assert.equal(rooms.find((room) => room.number === "B202")?.hasIndoorDirections, true);
+  assert.deepEqual(getRoomsForBuilding("center-hall"), []);
+});
+
+test("destination intelligence represents unavailable data without inventing it", () => {
+  const destination = campusResolver.resolveCampusDestination("MANDE B202");
+  const navigationData = {
+    building: campusResolver.toLegacyBuilding(destination.building),
+    selectedEntrance: destination.entrance,
+    indoorDirections: destination.indoorDirections,
+    room: destination.room.number,
+    routeDetails: {
+      destinationLabel: "MANDE B202",
+      destinationType: "building"
+    },
+    displayCoordinate: destination.displayCoordinate,
+    destination: destination.destination
+  };
+  const intelligence = createDestinationIntelligence(navigationData);
+
+  assert.equal(intelligence.destinationName, "MANDE B202");
+  assert.equal(intelligence.room, "B202");
+  assert.equal(intelligence.selectedEntrance.id, "mandeville-lower");
+  assert.ok(intelligence.utilities.food.results.length > 0);
 });
 
 test("campus coverage report summarizes first-batch data quality", () => {

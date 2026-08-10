@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
+import CampusUtilityRail from "@/components/CampusUtilityRail";
 import MapView from "@/components/MapView";
 import { getLocationById } from "@/data/locations";
 import { useLocation } from "@/hooks/useLocation";
+import destinationIntelligence from "@/lib/campus/destinationIntelligence";
 import { calculateDistanceMeters, metersToFeet } from "@/lib/distance";
 import { createRouteLineString } from "@/lib/mapGeometry";
 import {
@@ -15,6 +17,8 @@ import {
 } from "@/lib/navigation";
 import { formatDurationMinutes } from "@/lib/utils";
 import { requestWalkingRoute } from "@/services/routingService.mjs";
+
+const { createDestinationIntelligence, UTILITY_CATEGORIES } = destinationIntelligence;
 
 const DEFAULT_QUERY = "";
 const DEMO_SEARCHES = ["CSB 115", "MOS 0114", "MANDE B202", "DIB 122"];
@@ -117,9 +121,11 @@ function getDisplaySubtitle(result) {
   return result.name.replace(title, "").trim() || result.address || result.name;
 }
 
-function getLocationLabel(status, location) {
+function getLocationLabel(status, location, coverage) {
+  if (location && coverage?.status === "outside") return "Outside UCSD routing area";
   if (location) return "Current location";
-  if (status === "loading" || status === "idle") return "Locating…";
+  if (status === "loading") return "Locating…";
+  if (status === "idle") return "Use current location";
   if (status === "denied") return "Permission required";
   if (status === "unsupported") return "Location unavailable";
   return "Approximate campus area";
@@ -329,6 +335,109 @@ function createFinalConnectorGeometry(routingDestination, displayDestination) {
   return createRouteLineString([routingDestination, displayDestination]);
 }
 
+function formatVerificationStatus(status) {
+  if (!status) return "Verification pending";
+  if (status === "official-map") return "UCSD map";
+  if (status === "provisional") return "Provisional";
+  return status.replace(/-/g, " ");
+}
+
+function filterRooms(rooms, query) {
+  const normalizedQuery = String(query || "").trim().toLowerCase();
+  if (!normalizedQuery) return rooms.slice(0, 5);
+
+  return rooms
+    .filter((room) =>
+      [room.number, room.name, room.entranceName]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalizedQuery))
+    )
+    .slice(0, 5);
+}
+
+function UtilityNearbyPanel({ category, results }) {
+  if (!category || category.id === "room-lookup") return null;
+
+  return (
+    <div className="destination-intelligence-section">
+      <div className="destination-section-heading">
+        <span>Nearby</span>
+        <strong>{category.label}</strong>
+      </div>
+      {results?.length ? (
+        <div className="nearby-utility-list">
+          {results.map((item) => (
+            <div className="nearby-utility-row" key={item.id}>
+              <span className="nearby-utility-dot" aria-hidden="true">
+                {category.iconLabel}
+              </span>
+              <span>
+                <strong>{item.name}</strong>
+                <small>
+                  {item.distanceLabel || "Distance unavailable"} • {item.type} •{" "}
+                  {formatVerificationStatus(item.verificationStatus)}
+                </small>
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="sheet-supporting-copy">
+          No nearby {category.label.toLowerCase()} records are available for this destination yet.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function RoomLookupPanel({ building, rooms, query, onChangeQuery, onSelectRoom }) {
+  const filteredRooms = filterRooms(rooms, query);
+
+  return (
+    <div className="destination-intelligence-section">
+      <div className="destination-section-heading">
+        <span>Inside the Building</span>
+        <strong>Room Lookup</strong>
+      </div>
+      <label className="sr-only" htmlFor="room-lookup-input">
+        Search rooms in {building?.name || "selected building"}
+      </label>
+      <input
+        className="room-lookup-input"
+        id="room-lookup-input"
+        onChange={(event) => onChangeQuery(event.target.value)}
+        placeholder={`Search rooms in ${building?.shortName || building?.name || "this building"}`}
+        type="search"
+        value={query}
+      />
+      {filteredRooms.length ? (
+        <div className="room-lookup-list">
+          {filteredRooms.map((room) => (
+            <button
+              className="room-lookup-row"
+              key={room.id}
+              onClick={() => onSelectRoom(room)}
+              type="button"
+            >
+              <span>
+                <strong>{room.name}</strong>
+                <small>
+                  {room.entranceName ? `Preferred entrance: ${room.entranceName}` : "Entrance pending"}
+                </small>
+              </span>
+              <span>{room.hasIndoorDirections ? "Directions" : "No indoor details"}</span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="sheet-supporting-copy">
+          Detailed room records are not available for {building?.name || "this building"} yet.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function HomePage() {
   const isDevelopment = process.env.NODE_ENV === "development";
   const [query, setQuery] = useState(DEFAULT_QUERY);
@@ -338,6 +447,9 @@ export default function HomePage() {
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [developmentOriginId, setDevelopmentOriginId] = useState("current");
+  const [activeUtilityId, setActiveUtilityId] = useState("");
+  const [roomLookupQuery, setRoomLookupQuery] = useState("");
+  const [useCampusPreviewOrigin, setUseCampusPreviewOrigin] = useState(false);
   const [routeRequest, setRouteRequest] = useState({
     status: ROUTE_STATES.IDLE,
     route: null,
@@ -354,15 +466,27 @@ export default function HomePage() {
     lastOffset: 0,
     didDrag: false
   });
-  const { location, status, retryLocation } = useLocation();
+  const { location, status, coverage, retryLocation } = useLocation();
   const developmentOrigin = isDevelopment && developmentOriginId !== "current"
     ? DEVELOPMENT_TEST_ORIGINS.find((testOrigin) => testOrigin.id === developmentOriginId) || null
     : null;
-  const routeOrigin = developmentOrigin || location || FALLBACK_ORIGIN;
+  const isOutsideRoutingCoverage = Boolean(location && coverage?.status === "outside");
+  const locationFocusKey = location
+    ? `${status}:${location.lat.toFixed(6)},${location.lng.toFixed(6)}`
+    : "";
+  const routeOrigin =
+    developmentOrigin ||
+    (location && coverage?.isInside ? location : null) ||
+    (isOutsideRoutingCoverage && !useCampusPreviewOrigin ? null : FALLBACK_ORIGIN);
+  const mapCurrentLocation = location || null;
   const routeOriginLabel = developmentOrigin
     ? `Development test origin: ${developmentOrigin.label}`
-    : location
+    : location && coverage?.isInside
       ? "Current location"
+      : isOutsideRoutingCoverage && useCampusPreviewOrigin
+        ? `Preview from campus: ${FALLBACK_ORIGIN.label}`
+        : isOutsideRoutingCoverage
+          ? "Outside UCSD routing area"
       : FALLBACK_ORIGIN.label;
   const hasSearchQuery = query.trim().length > 0;
   const results = useMemo(() => searchCampusLocations(query), [query]);
@@ -377,6 +501,24 @@ export default function HomePage() {
         : null,
     [routeOrigin, selectedResult]
   );
+  const intelligence = useMemo(
+    () => (navigationData ? createDestinationIntelligence(navigationData) : null),
+    [navigationData]
+  );
+  const activeUtility = UTILITY_CATEGORIES.find((category) => category.id === activeUtilityId) || null;
+  const activeUtilityResults = activeUtilityId
+    ? intelligence?.utilities?.[activeUtilityId]?.results || []
+    : [];
+  const utilityMarkers =
+    activeUtility?.mapLayer && activeUtilityResults.length
+      ? activeUtilityResults.map((item) => ({
+          id: item.id,
+          name: item.name,
+          categoryId: activeUtility.id,
+          coordinates: item.coordinates,
+          iconLabel: activeUtility.iconLabel
+        }))
+      : [];
   const destination = navigationData?.destination;
   const routingDestination = navigationData?.routingDestination || destination;
   const selectedKey = selectedResult
@@ -385,19 +527,21 @@ export default function HomePage() {
   const visibleResults = results.slice(0, 6);
   const origin = routeOrigin;
   const routePreview = navigationData
-    ? buildRoutePreview({
+    ? routeOrigin
+      ? buildRoutePreview({
         origin,
         destination: routingDestination,
         destinationLabel: navigationData.routeDetails.destinationLabel,
         originLabel: routeOriginLabel
       })
+      : null
     : null;
   const selectedCollege = navigationData?.college;
   const selectedRecreationFacility = navigationData?.recreationFacility;
   const arrivalSummary = getArrivalSummary(navigationData?.routeDetails);
   const shouldShowResults = sheetState === SHEET_STATES.RESULTS && hasSearchQuery;
-  const shouldShowDestination = sheetState === SHEET_STATES.SELECTED && selectedResult && routePreview;
-  const shouldShowRoute = sheetState === SHEET_STATES.ROUTE && selectedResult && routePreview;
+  const shouldShowDestination = sheetState === SHEET_STATES.SELECTED && selectedResult && navigationData;
+  const shouldShowRoute = sheetState === SHEET_STATES.ROUTE && selectedResult && navigationData;
   const routeDisplay = routeRequest.route
     ? {
         destinationLabel: routePreview?.destinationLabel || navigationData?.routeDetails.destinationLabel,
@@ -409,7 +553,14 @@ export default function HomePage() {
         isEstimated: Boolean(routeRequest.route.isEstimated),
         provider: routeRequest.route.provider
       }
-    : routePreview;
+    : routePreview || {
+        destinationLabel: navigationData?.routeDetails.destinationLabel || "Selected destination",
+        distanceLabel: "Route unavailable",
+        walkTimeLabel: "Time unavailable",
+        originLabel: routeOriginLabel,
+        steps: [],
+        warnings: []
+      };
   const routeDiagnostics = {
     routeState: routeRequest.status,
     origin,
@@ -431,7 +582,7 @@ export default function HomePage() {
   const routeLineGeometry =
     shouldShowRoute && routeRequest.route
       ? buildRouteFeatureFromNormalizedRoute(routeRequest.route)
-      : shouldShowRoute && routePreview?.geoPath && routeRequest.status === ROUTE_STATES.TEMPORARY_FALLBACK
+    : shouldShowRoute && routePreview?.geoPath && routeRequest.status === ROUTE_STATES.TEMPORARY_FALLBACK
         ? createRouteLineString(routePreview.geoPath)
         : null;
   const routeConnectorGeometry =
@@ -442,7 +593,7 @@ export default function HomePage() {
     ? "route"
     : destination
       ? "destination"
-      : location
+      : mapCurrentLocation
         ? "current-location"
         : "default";
   const isSheetExpanded = sheetPosition === SHEET_POSITIONS.EXPANDED;
@@ -463,6 +614,7 @@ export default function HomePage() {
   function selectResult(result) {
     routeAbortRef.current?.abort();
     setSelectedResult(result);
+    setRoomLookupQuery("");
     setRouteRequest({
       status: ROUTE_STATES.IDLE,
       route: null,
@@ -498,6 +650,9 @@ export default function HomePage() {
   function updateQuery(value) {
     routeAbortRef.current?.abort();
     setQuery(value);
+    setActiveUtilityId("");
+    setRoomLookupQuery("");
+    setUseCampusPreviewOrigin(false);
     setRouteRequest({
       status: ROUTE_STATES.IDLE,
       route: null,
@@ -512,6 +667,9 @@ export default function HomePage() {
   function clearSearch() {
     routeAbortRef.current?.abort();
     setQuery("");
+    setActiveUtilityId("");
+    setRoomLookupQuery("");
+    setUseCampusPreviewOrigin(false);
     setRouteRequest({
       status: ROUTE_STATES.IDLE,
       route: null,
@@ -526,6 +684,9 @@ export default function HomePage() {
   function changeDestination() {
     routeAbortRef.current?.abort();
     setSelectedResult(null);
+    setActiveUtilityId("");
+    setRoomLookupQuery("");
+    setUseCampusPreviewOrigin(false);
     setRouteRequest({
       status: ROUTE_STATES.IDLE,
       route: null,
@@ -538,7 +699,21 @@ export default function HomePage() {
   }
 
   async function previewRoute() {
-    if (!selectedResult || !hasCoordinates(origin) || !hasCoordinates(routingDestination)) return;
+    if (!selectedResult || !hasCoordinates(routingDestination)) return;
+
+    if (!hasCoordinates(origin)) {
+      setRouteRequest({
+        status: ROUTE_STATES.ERROR,
+        route: null,
+        error: "You're currently outside TritonNav's UCSD routing area. Choose Preview from campus or a development origin to calculate a UCSD route.",
+        errorCode: "ORIGIN_OUTSIDE_ROUTING_AREA",
+        httpStatus: null,
+        requestDurationMs: null
+      });
+      setSheetState(SHEET_STATES.ROUTE);
+      setSheetPosition(SHEET_POSITIONS.EXPANDED);
+      return;
+    }
 
     routeAbortRef.current?.abort();
     const controller = new AbortController();
@@ -604,6 +779,7 @@ export default function HomePage() {
   function updateDevelopmentOrigin(event) {
     routeAbortRef.current?.abort();
     setDevelopmentOriginId(event.target.value);
+    setUseCampusPreviewOrigin(false);
     setRouteRequest({
       status: ROUTE_STATES.IDLE,
       route: null,
@@ -615,6 +791,39 @@ export default function HomePage() {
     if (selectedResult) {
       setSheetState(SHEET_STATES.SELECTED);
       setSheetPosition(SHEET_POSITIONS.EXPANDED);
+    }
+  }
+
+  function requestDeviceLocation() {
+    setUseCampusPreviewOrigin(false);
+    retryLocation();
+  }
+
+  function previewFromCampus() {
+    setUseCampusPreviewOrigin(true);
+    setSheetPosition(SHEET_POSITIONS.EXPANDED);
+    if (selectedResult) {
+      setSheetState(SHEET_STATES.SELECTED);
+    }
+  }
+
+  function selectUtilityCategory(categoryId) {
+    setActiveUtilityId(categoryId);
+    if (categoryId !== "room-lookup") {
+      setRoomLookupQuery("");
+    }
+    if (selectedResult) {
+      setSheetPosition(SHEET_POSITIONS.EXPANDED);
+    }
+  }
+
+  function selectRoomFromLookup(room) {
+    const roomQuery = `${navigationData?.building?.shortName || selectedResult?.buildingCode || ""} ${room.number}`.trim();
+    const [roomResult] = searchCampusLocations(roomQuery);
+    if (roomResult) {
+      setQuery(roomQuery);
+      selectResult(roomResult);
+      setActiveUtilityId("room-lookup");
     }
   }
 
@@ -743,24 +952,24 @@ export default function HomePage() {
               </select>
             </div>
           ) : null}
+          <button
+            className="map-location-button"
+            onClick={requestDeviceLocation}
+            title="Use current location"
+            type="button"
+          >
+            <span className="map-location-dot" />
+            <span>{getLocationLabel(status, location, coverage)}</span>
+          </button>
         </div>
-
-        <button
-          className="map-location-button"
-          onClick={retryLocation}
-          title="Use current location"
-          type="button"
-        >
-          <span className="map-location-dot" />
-          <span>{getLocationLabel(status, location)}</span>
-        </button>
 
         <div className="campus-map-frame">
           <MapView
             bottomSheetState={sheetPosition}
-            currentLocation={location}
+            currentLocation={mapCurrentLocation}
             currentLocationStatus={status}
             fallbackLocation={FALLBACK_ORIGIN}
+            focusCurrentLocationKey={locationFocusKey}
             allowEndpointRouteFallback={false}
             mapMode={mapMode}
             navigationData={navigationData}
@@ -768,9 +977,19 @@ export default function HomePage() {
             routeConnectorGeometry={routeConnectorGeometry}
             routeIsEstimated={routeRequest.status !== ROUTE_STATES.SUCCESS}
             selectedDestination={destination}
+            utilityMarkers={utilityMarkers}
             variant="homepage"
           />
         </div>
+
+        {navigationData ? (
+          <CampusUtilityRail
+            activeCategoryId={activeUtilityId}
+            categories={UTILITY_CATEGORIES}
+            onSelectCategory={selectUtilityCategory}
+            sheetPosition={sheetPosition}
+          />
+        ) : null}
 
         <section
           aria-label="Destination panel"
@@ -898,22 +1117,48 @@ export default function HomePage() {
             <div className="sheet-panel-content">
               <div className="sheet-heading-row">
                 <div>
-                  <h2>{routePreview.destinationLabel}</h2>
+                  <h2>{routeDisplay.destinationLabel}</h2>
                   <p className="eyebrow">Destination Selected</p>
                 </div>
                 <button className="sheet-text-button" onClick={changeDestination} type="button">
                   Change
                 </button>
               </div>
+              {isOutsideRoutingCoverage && !useCampusPreviewOrigin ? (
+                <div className="inline-alert inline-alert-warning">
+                  <strong>Outside UCSD routing area.</strong> TritonNav can show your real location,
+                  but the local Valhalla graph only covers UCSD. Preview from campus or choose a
+                  campus test origin before calculating a walking route.
+                  <button className="inline-alert-action" onClick={previewFromCampus} type="button">
+                    Preview from campus
+                  </button>
+                </div>
+              ) : null}
               <div className="sheet-metric-grid">
                 <div>
                   <span>Distance</span>
-                  <strong>{routePreview.distanceLabel}</strong>
+                  <strong>{routeDisplay.distanceLabel}</strong>
                 </div>
                 <div>
                   <span>Walk time</span>
-                  <strong>{routePreview.walkTimeLabel}</strong>
+                  <strong>{routeDisplay.walkTimeLabel}</strong>
                 </div>
+              </div>
+              <div className="destination-intelligence-section">
+                <div className="destination-section-heading">
+                  <span>Destination</span>
+                  <strong>{intelligence?.destinationType || navigationData.destinationType}</strong>
+                </div>
+                <p className="sheet-supporting-copy">
+                  {navigationData.building.name}
+                  {navigationData.room ? ` • room ${navigationData.room}` : ""}
+                  {navigationData.building.shortName ? ` • ${navigationData.building.shortName}` : ""}
+                </p>
+                {intelligence?.selectedEntrance ? (
+                  <p className="sheet-supporting-copy">
+                    Preferred entrance: {intelligence.selectedEntrance.name}
+                  </p>
+                ) : null}
               </div>
               <p className="sheet-summary">
                 {navigationData.instructions}
@@ -921,7 +1166,50 @@ export default function HomePage() {
               {arrivalSummary ? (
                 <p className="sheet-supporting-copy">{arrivalSummary}</p>
               ) : null}
+              <div className="destination-intelligence-section">
+                <div className="destination-section-heading">
+                  <span>Arrival</span>
+                  <strong>{intelligence?.accessibilityStatus || "Accessibility data unavailable"}</strong>
+                </div>
+                <p className="sheet-supporting-copy">
+                  Accessibility is shown only when TritonNav has verified or curated entrance data.
+                </p>
+              </div>
               <IndoorDirectionsDetails indoorDirections={navigationData.indoorDirections} />
+              {!hasIndoorDirections(navigationData.indoorDirections) ? (
+                <p className="sheet-supporting-copy">
+                  Detailed indoor directions are not available yet.
+                </p>
+              ) : null}
+              {activeUtility?.id === "room-lookup" ? (
+                <RoomLookupPanel
+                  building={navigationData.building}
+                  onChangeQuery={setRoomLookupQuery}
+                  onSelectRoom={selectRoomFromLookup}
+                  query={roomLookupQuery}
+                  rooms={activeUtilityResults}
+                />
+              ) : (
+                <UtilityNearbyPanel category={activeUtility} results={activeUtilityResults} />
+              )}
+              {intelligence?.buildingInfo?.aliases?.length || intelligence?.buildingInfo?.college ? (
+                <div className="destination-intelligence-section">
+                  <div className="destination-section-heading">
+                    <span>Building Information</span>
+                    <strong>{intelligence.buildingInfo.college || "Campus"}</strong>
+                  </div>
+                  {intelligence.buildingInfo.aliases?.length ? (
+                    <p className="sheet-supporting-copy">
+                      Also known as: {intelligence.buildingInfo.aliases.slice(0, 4).join(", ")}
+                    </p>
+                  ) : null}
+                  {intelligence.buildingInfo.image ? (
+                    <p className="sheet-supporting-copy">Building image available.</p>
+                  ) : (
+                    <p className="sheet-supporting-copy">No verified building image is available yet.</p>
+                  )}
+                </div>
+              ) : null}
               {selectedCollege ? (
                 <p className="sheet-supporting-copy">
                   {selectedCollege.associatedBuildings.slice(0, 3).join(", ")}
@@ -997,6 +1285,22 @@ export default function HomePage() {
                 <p className="sheet-supporting-copy">{arrivalSummary}</p>
               ) : null}
               <IndoorDirectionsDetails indoorDirections={navigationData.indoorDirections} />
+              {!hasIndoorDirections(navigationData.indoorDirections) ? (
+                <p className="sheet-supporting-copy">
+                  Detailed indoor directions are not available yet.
+                </p>
+              ) : null}
+              {activeUtility?.id === "room-lookup" ? (
+                <RoomLookupPanel
+                  building={navigationData.building}
+                  onChangeQuery={setRoomLookupQuery}
+                  onSelectRoom={selectRoomFromLookup}
+                  query={roomLookupQuery}
+                  rooms={activeUtilityResults}
+                />
+              ) : (
+                <UtilityNearbyPanel category={activeUtility} results={activeUtilityResults} />
+              )}
               <p className="sheet-supporting-copy">
                 {routeRequest.status === ROUTE_STATES.SUCCESS
                   ? "Outdoor walking guidance is separated from building and room arrival notes."

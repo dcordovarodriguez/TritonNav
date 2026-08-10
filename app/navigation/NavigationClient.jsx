@@ -67,10 +67,12 @@ export default function NavigationClient() {
             {error
               ? error
               : isLocating
-                ? "Checking your current location for a stronger Google Maps handoff."
+                ? "Checking your current location for a stronger map origin."
                 : location
-                  ? "Using your current position as the map origin."
-                  : "Using a campus-ready fallback until location is enabled."}
+                  ? locationStatus === "outside"
+                    ? "Your current position is outside TritonNav's UCSD routing area."
+                    : "Using your current position as the map origin."
+                  : "Location has not been requested yet."}
           </p>
         </div>
 
@@ -105,8 +107,12 @@ export default function NavigationClient() {
           <span className={`status-chip status-chip-${locationStatus}`}>
             {locationStatus === "ready"
               ? "Live location ready"
-              : locationStatus === "loading" || locationStatus === "idle"
+              : locationStatus === "outside"
+                ? "Outside UCSD routing area"
+              : locationStatus === "loading"
                 ? "Requesting live location"
+                : locationStatus === "idle"
+                  ? "Location not requested"
                 : "Using fallback origin"}
           </span>
           <span className={`status-chip status-chip-${locationPermission}`}>
