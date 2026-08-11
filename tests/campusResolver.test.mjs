@@ -73,6 +73,15 @@ test("resolves DIB 122 as a room destination", () => {
   assert.equal(destination.entrance.id, "dib-main");
 });
 
+test("resolves FAH 1100 as a Franklin Antonio Hall room destination", () => {
+  const destination = campusResolver.resolveCampusDestination("FAH 1100");
+
+  assert.equal(destination?.building.id, "fah");
+  assert.equal(destination.room.number, "1100");
+  assert.equal(destination.entrance.id, "fah-west");
+  assertCoordinate(destination.destination);
+});
+
 test("resolves Sixth College", () => {
   const destination = campusResolver.resolveCampusDestination("Sixth College");
   assert.equal(destination?.building.id, "sixth-college");
@@ -258,6 +267,8 @@ test("campus search documents preserve required UI-facing destinations", () => {
   for (const roomName of ["CSB 115", "MOS 0114", "MANDE B202", "DIB 122"]) {
     assert.ok(documents.some((document) => document.name === roomName), `${roomName} room document missing`);
   }
+
+  assert.ok(documents.some((document) => document.name === "FAH 1100"), "FAH 1100 room document missing");
 });
 
 test("campus search documents keep legacy result shape fields", () => {

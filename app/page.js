@@ -79,6 +79,7 @@ const ROUTE_STATES = {
   LOADING: "loading",
   SUCCESS: "success",
   ERROR: "error",
+  ROUTING_UNAVAILABLE: "routingUnavailable",
   TEMPORARY_FALLBACK: "temporaryFallback"
 };
 const SHEET_POSITIONS = {
@@ -333,6 +334,14 @@ function createFinalConnectorGeometry(routingDestination, displayDestination) {
   if (!connectorDistance || connectorDistance < 2 || connectorDistance > 80) return null;
 
   return createRouteLineString([routingDestination, displayDestination]);
+}
+
+function getRoutePanelEyebrow(routeStatus) {
+  if (routeStatus === ROUTE_STATES.SUCCESS) return "Walking Route Preview";
+  if (routeStatus === ROUTE_STATES.LOADING) return "Calculating Route";
+  if (routeStatus === ROUTE_STATES.ROUTING_UNAVAILABLE) return "Routing Not Connected";
+  if (routeStatus === ROUTE_STATES.ERROR) return "Route Unavailable";
+  return "Temporary Route Preview";
 }
 
 function formatVerificationStatus(status) {
@@ -650,6 +659,7 @@ export default function HomePage() {
   function updateQuery(value) {
     routeAbortRef.current?.abort();
     setQuery(value);
+    setSelectedResult(null);
     setActiveUtilityId("");
     setRoomLookupQuery("");
     setUseCampusPreviewOrigin(false);
@@ -753,15 +763,16 @@ export default function HomePage() {
     } catch (error) {
       if (error?.name === "AbortError" || routeSequenceRef.current !== requestSequence) return;
 
-      if (error?.code === "PROVIDER_CONFIGURATION" && process.env.NODE_ENV !== "production") {
+      if (error?.code === "PROVIDER_CONFIGURATION") {
         setRouteRequest({
-          status: ROUTE_STATES.TEMPORARY_FALLBACK,
+          status: ROUTE_STATES.ROUTING_UNAVAILABLE,
           route: null,
-          error: "Walking routing is not configured locally, so this is a temporary estimate.",
+          error: "Live campus routing is not connected on this deployment yet. Destination details and nearby utilities are still available.",
           errorCode: error.code,
           httpStatus: error.status || null,
           requestDurationMs: Math.round(performance.now() - requestStartedAt)
         });
+        setSheetPosition(SHEET_POSITIONS.EXPANDED);
         return;
       }
 
@@ -773,6 +784,7 @@ export default function HomePage() {
         httpStatus: error?.status || null,
         requestDurationMs: Math.round(performance.now() - requestStartedAt)
       });
+      setSheetPosition(SHEET_POSITIONS.EXPANDED);
     }
   }
 
@@ -982,14 +994,12 @@ export default function HomePage() {
           />
         </div>
 
-        {navigationData ? (
-          <CampusUtilityRail
-            activeCategoryId={activeUtilityId}
-            categories={UTILITY_CATEGORIES}
-            onSelectCategory={selectUtilityCategory}
-            sheetPosition={sheetPosition}
-          />
-        ) : null}
+        <CampusUtilityRail
+          activeCategoryId={activeUtilityId}
+          categories={UTILITY_CATEGORIES}
+          onSelectCategory={selectUtilityCategory}
+          sheetPosition={sheetPosition}
+        />
 
         <section
           aria-label="Destination panel"
@@ -1230,8 +1240,13 @@ export default function HomePage() {
                   ))}
                 </div>
               ) : null}
-              <button className="sheet-primary-action" onClick={previewRoute} type="button">
-                Preview Route
+              <button
+                className="sheet-primary-action"
+                disabled={routeRequest.status === ROUTE_STATES.LOADING}
+                onClick={previewRoute}
+                type="button"
+              >
+                {routeRequest.status === ROUTE_STATES.LOADING ? "Calculating..." : "Preview Route"}
               </button>
             </div>
           ) : null}
@@ -1241,11 +1256,7 @@ export default function HomePage() {
               <div className="sheet-heading-row">
                 <div>
                   <h2>{routeDisplay.destinationLabel}</h2>
-                  <p className="eyebrow">
-                    {routeRequest.status === ROUTE_STATES.SUCCESS
-                      ? "Walking Route Preview"
-                      : "Temporary Route Preview"}
-                  </p>
+                  <p className="eyebrow">{getRoutePanelEyebrow(routeRequest.status)}</p>
                 </div>
                 <button className="sheet-text-button" onClick={changeDestination} type="button">
                   Change
@@ -1259,6 +1270,11 @@ export default function HomePage() {
               {routeRequest.status === ROUTE_STATES.ERROR ? (
                 <div className="inline-alert inline-alert-warning">
                   <strong>Route unavailable.</strong> {routeRequest.error}
+                </div>
+              ) : null}
+              {routeRequest.status === ROUTE_STATES.ROUTING_UNAVAILABLE ? (
+                <div className="inline-alert inline-alert-warning">
+                  <strong>Routing not connected.</strong> {routeRequest.error}
                 </div>
               ) : null}
               {routeRequest.status === ROUTE_STATES.TEMPORARY_FALLBACK ? (
@@ -1331,7 +1347,12 @@ export default function HomePage() {
                 </details>
               ) : null}
               <div className="route-sheet-actions">
-                <button className="sheet-primary-action" onClick={previewRoute} type="button">
+                <button
+                  className="sheet-primary-action"
+                  disabled={routeRequest.status === ROUTE_STATES.LOADING}
+                  onClick={previewRoute}
+                  type="button"
+                >
                   {routeRequest.status === ROUTE_STATES.LOADING ? "Calculating..." : "Retry Route"}
                 </button>
                 <Link

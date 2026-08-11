@@ -88,6 +88,7 @@ const CAMPUS_ROOMS = [
   { id: "price-center-theatre", buildingId: "price-center", number: "Theatre", name: "Price Center Theatre", floor: 1, preferredEntranceId: "price-center-east-main" },
   { id: "price-center-food-court", buildingId: "price-center", number: "Food Court", name: "Price Center Food Court", floor: 1, preferredEntranceId: "price-center-east-main" },
   { id: "cse-1202", buildingId: "cse", number: "1202", name: "CSE 1202", floor: 1, preferredEntranceId: "cse-voigt" },
+  { id: "fah-1100", buildingId: "fah", number: "1100", name: "FAH 1100", floor: 1, preferredEntranceId: "fah-west" },
   { id: "fah-1450", buildingId: "fah", number: "1450", name: "FAH 1450", floor: 1, preferredEntranceId: "fah-east" }
 ];
 
