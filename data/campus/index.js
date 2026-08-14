@@ -5,6 +5,7 @@ const { CAMPUS_ENTRANCES } = require("./entrances.js");
 const { UNDERGRADUATE_COLLEGE_HOUSING, UPPER_DIVISION_HOUSING } = require("./housing.js");
 const { CAMPUS_PLACES } = require("./places.js");
 const { CAMPUS_ROOMS } = require("./rooms.js");
+const CAMPUS_SOURCE_REGISTRY = require("./sources.js");
 const { CAMPUS_UTILITIES, UTILITY_CATEGORIES } = require("./utilities.js");
 
 module.exports = {
@@ -15,6 +16,7 @@ module.exports = {
   UNDERGRADUATE_COLLEGE_HOUSING,
   CAMPUS_PLACES,
   CAMPUS_ROOMS,
+  CAMPUS_SOURCE_REGISTRY,
   CAMPUS_UTILITIES,
   UTILITY_CATEGORIES,
   UPPER_DIVISION_HOUSING,
@@ -29,6 +31,7 @@ module.exports = {
     },
     places: CAMPUS_PLACES,
     rooms: CAMPUS_ROOMS,
+    sources: CAMPUS_SOURCE_REGISTRY,
     utilities: CAMPUS_UTILITIES,
     utilityCategories: UTILITY_CATEGORIES
   }

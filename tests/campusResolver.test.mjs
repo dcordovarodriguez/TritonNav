@@ -12,6 +12,10 @@ const {
   UTILITY_CATEGORIES
 } = require("../lib/campus/destinationIntelligence.js");
 const { createCampusSearchDocuments } = require("../lib/campus/searchDocuments.js");
+const { normalizeBuildingFeature } = require("../lib/campus/import/normalizeBuildingFeature.js");
+const { normalizeEntranceFeature } = require("../lib/campus/import/normalizeEntranceFeature.js");
+const { normalizePathFeature } = require("../lib/campus/import/normalizePathFeature.js");
+const { normalizeUtilityFeature } = require("../lib/campus/import/normalizeUtilityFeature.js");
 
 function assertCoordinate(coordinate) {
   assert.equal(typeof coordinate?.lat, "number");
@@ -434,9 +438,131 @@ test("campus coverage report summarizes first-batch data quality", () => {
   const report = createCampusCoverageReport();
 
   assert.ok(report.totals.buildings >= 54);
+  assert.ok(report.totals.colleges >= 8);
   assert.ok(report.totals.districts >= 8);
+  assert.ok(report.totals.utilities >= 1);
   assert.ok(report.buildingsByDistrict["health-sciences"] >= 6);
   assert.ok(report.buildingsByCategory.health >= 5);
   assert.ok(report.completeness.withCentroid >= report.totals.buildings);
+  assert.ok(report.sourceStatus.buildings);
+  assert.ok(report.utilities["bike-racks"].provisional >= 1);
+  assert.equal(report.paths.currentSource, "OSM extract routed by Valhalla");
   assert.ok(report.gaps.missingEntranceCoordinates.includes("rita-atkinson-residences"));
+});
+
+test("GIS building GeoJSON can normalize into the campus building schema", () => {
+  const building = normalizeBuildingFeature(
+    {
+      type: "Feature",
+      properties: {
+        building_id: "GIS-101",
+        building_name: "GIS Test Hall",
+        building_code: "GIST",
+        aliases: "Test Hall;Official GIS Hall",
+        type: "Academic Building",
+        address: "9500 Gilman Dr",
+        dataset: "campus-buildings",
+        verified: true,
+        confidence: "official"
+      },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-117.2378, 32.881],
+            [-117.2376, 32.881],
+            [-117.2376, 32.8812],
+            [-117.2378, 32.8812],
+            [-117.2378, 32.881]
+          ]
+        ]
+      }
+    },
+    {
+      source: {
+        authority: "UC San Diego",
+        sourceType: "arcgis-feature-service",
+        status: "official",
+        sourceUrl: "https://example.ucsd.edu/FeatureServer/0",
+        verified: true,
+        confidence: "official"
+      }
+    }
+  );
+
+  assert.equal(building.id, "gis-101");
+  assert.equal(building.name, "GIS Test Hall");
+  assert.equal(building.code, "GIST");
+  assert.deepEqual(building.aliases, ["Test Hall", "Official GIS Hall"]);
+  assertCoordinate(building.centroid);
+  assert.equal(building.source.authority, "UC San Diego");
+  assert.equal(building.source.status, "official");
+});
+
+test("GIS entrance GeoJSON can normalize into the campus entrance schema", () => {
+  const entrance = normalizeEntranceFeature({
+    type: "Feature",
+    properties: {
+      entrance_id: "GIS-101-main",
+      building_id: "gis-101",
+      entrance_name: "Main south entrance",
+      entrance_type: "main",
+      accessible: "yes",
+      public_access: "true",
+      has_stairs: "no",
+      door_notes: "Public entrance from Library Walk",
+      confidence: "official"
+    },
+    geometry: {
+      type: "Point",
+      coordinates: [-117.2377, 32.88105]
+    }
+  });
+
+  assert.equal(entrance.id, "gis-101-main");
+  assert.equal(entrance.buildingId, "gis-101");
+  assert.equal(entrance.accessible, true);
+  assert.equal(entrance.publicAccess, true);
+  assert.equal(entrance.stairs, false);
+  assertCoordinate(entrance.coordinates);
+});
+
+test("GIS pedestrian path and utility features normalize without touching runtime routing", () => {
+  const path = normalizePathFeature({
+    type: "Feature",
+    properties: {
+      path_id: "walk-1",
+      name: "Library Walk sample",
+      surface: "concrete",
+      stairs: "false",
+      accessible: "true"
+    },
+    geometry: {
+      type: "LineString",
+      coordinates: [
+        [-117.2378, 32.8808],
+        [-117.2372, 32.8809]
+      ]
+    }
+  });
+  const utility = normalizeUtilityFeature({
+    type: "Feature",
+    properties: {
+      utility_id: "rack-1",
+      category: "bike-racks",
+      name: "Sample bike rack",
+      related_building_ids: "geisel-library;price-center"
+    },
+    geometry: {
+      type: "Point",
+      coordinates: [-117.2377, 32.88082]
+    }
+  });
+
+  assert.equal(path.id, "walk-1");
+  assert.equal(path.geometry.length, 2);
+  assert.equal(path.accessible, true);
+  assert.equal(utility.id, "rack-1");
+  assert.equal(utility.categoryId, "bike-racks");
+  assert.deepEqual(utility.relatedBuildingIds, ["geisel-library", "price-center"]);
 });
