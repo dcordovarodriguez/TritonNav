@@ -37,3 +37,11 @@ infrastructure/valhalla/config/*.local.*
 infrastructure/valhalla/.env
 infrastructure/valhalla/.env.*
 !infrastructure/valhalla/.env.example
+
+# Local official GIS data drops and generated import previews
+data/campus/imports/raw/*
+!data/campus/imports/raw/.gitkeep
+!data/campus/imports/raw/README.md
+data/campus/imports/generated/*
+!data/campus/imports/generated/.gitkeep
+!data/campus/imports/generated/README.md

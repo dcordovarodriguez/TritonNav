@@ -2,6 +2,7 @@ const { CAMPUS_BUILDINGS } = require("./buildings.js");
 const { CAMPUS_COLLEGES } = require("./colleges.js");
 const { CAMPUS_DISTRICTS } = require("./districts.js");
 const { CAMPUS_ENTRANCES } = require("./entrances.js");
+const CAMPUS_INDOOR = require("./indoor/index.js");
 const { UNDERGRADUATE_COLLEGE_HOUSING, UPPER_DIVISION_HOUSING } = require("./housing.js");
 const { CAMPUS_PLACES } = require("./places.js");
 const { CAMPUS_ROOMS } = require("./rooms.js");
@@ -13,6 +14,7 @@ module.exports = {
   CAMPUS_COLLEGES,
   CAMPUS_DISTRICTS,
   CAMPUS_ENTRANCES,
+  CAMPUS_INDOOR,
   UNDERGRADUATE_COLLEGE_HOUSING,
   CAMPUS_PLACES,
   CAMPUS_ROOMS,
@@ -25,6 +27,7 @@ module.exports = {
     colleges: CAMPUS_COLLEGES,
     districts: CAMPUS_DISTRICTS,
     entrances: CAMPUS_ENTRANCES,
+    indoor: CAMPUS_INDOOR,
     housing: {
       undergraduate: UNDERGRADUATE_COLLEGE_HOUSING,
       upperDivision: UPPER_DIVISION_HOUSING

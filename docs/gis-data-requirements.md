@@ -18,6 +18,59 @@ All future records should carry provenance:
 - `confidence`
 - `notes`
 
+## Safe Data Drop Location
+
+Future local data drops should be placed under:
+
+`data/campus/imports/raw/`
+
+Raw files and generated import previews are ignored by Git. This keeps official source files, large exports, and locally generated reports out of commits while allowing the repository to define the repeatable import workflow.
+
+Use `data/campus/imports/manifest.example.json` as the manifest template. The manifest describes each dataset, its entity type, file path, and shared provenance. Supported entity types are:
+
+- `building`
+- `entrance`
+- `path`
+- `accessibility`
+- `utility`
+
+Run the dry-run check with:
+
+```bash
+npm run check:campus-gis
+```
+
+or with a custom manifest path:
+
+```bash
+node scripts/check-campus-gis-import.mjs path/to/local-manifest.json
+```
+
+The dry run performs:
+
+1. Raw GIS dataset loading.
+2. GeoJSON validation.
+3. Provenance normalization.
+4. Entity normalization into TritonNav schema shapes.
+5. Stable matching against existing local records.
+6. Create/supersede/review summary.
+7. Coverage snapshot.
+
+It does not rewrite `data/campus/*.js`. Promoting official records into the app fixtures should happen in a separate reviewed change after ambiguous matches are resolved.
+
+## Superseding Provisional Data
+
+Official GIS records can supersede provisional TritonNav records when matching is stable by:
+
+- Official ID
+- Existing TritonNav ID
+- Building code
+- Normalized name
+- Known aliases
+- Entrance building relationship plus entrance name
+
+Ambiguous matches are reported as `review` and must be resolved manually. The importer must not silently merge ambiguous buildings, entrances, utilities, accessibility features, or paths.
+
 ## Required For Routing
 
 ### Campus Buildings

@@ -14,8 +14,11 @@ const {
 const { createCampusSearchDocuments } = require("../lib/campus/searchDocuments.js");
 const { normalizeBuildingFeature } = require("../lib/campus/import/normalizeBuildingFeature.js");
 const { normalizeEntranceFeature } = require("../lib/campus/import/normalizeEntranceFeature.js");
+const { createCampusImportPreview, createCampusImportRun } = require("../lib/campus/import/importDataset.js");
+const { matchCampusRecord } = require("../lib/campus/import/matchCampusRecord.js");
 const { normalizePathFeature } = require("../lib/campus/import/normalizePathFeature.js");
 const { normalizeUtilityFeature } = require("../lib/campus/import/normalizeUtilityFeature.js");
+const { validateCampusDataset } = require("../lib/campus/import/validateDataset.js");
 
 function assertCoordinate(coordinate) {
   assert.equal(typeof coordinate?.lat, "number");
@@ -445,7 +448,14 @@ test("campus coverage report summarizes first-batch data quality", () => {
   assert.ok(report.buildingsByCategory.health >= 5);
   assert.ok(report.completeness.withCentroid >= report.totals.buildings);
   assert.ok(report.sourceStatus.buildings);
+  assert.equal(report.buildings.discovered, report.totals.buildings);
+  assert.ok(report.buildings.verified >= 1);
+  assert.equal(report.entrances.total, report.totals.entrances);
+  assert.ok(report.entrances.buildingsWithZeroVerifiedEntrances.includes("geisel-library"));
+  assert.equal(report.accessibility.elevators.status, "not-imported");
   assert.ok(report.utilities["bike-racks"].provisional >= 1);
+  assert.equal(report.paths.importedPedestrianSegments, 0);
+  assert.ok(report.readiness.highestImpactMissingDatasets.includes("official entrance points with accessibility metadata"));
   assert.equal(report.paths.currentSource, "OSM extract routed by Valhalla");
   assert.ok(report.gaps.missingEntranceCoordinates.includes("rita-atkinson-residences"));
 });
@@ -565,4 +575,128 @@ test("GIS pedestrian path and utility features normalize without touching runtim
   assert.equal(utility.id, "rack-1");
   assert.equal(utility.categoryId, "bike-racks");
   assert.deepEqual(utility.relatedBuildingIds, ["geisel-library", "price-center"]);
+});
+
+test("campus GIS dataset validation rejects malformed required inputs", () => {
+  const validation = validateCampusDataset({
+    id: "bad-buildings",
+    entityType: "building",
+    required: true,
+    input: {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          properties: { building_name: "Broken Hall" }
+        }
+      ]
+    }
+  });
+
+  assert.equal(validation.valid, false);
+  assert.ok(validation.errors.some((error) => error.includes("missing geometry")));
+});
+
+test("official building imports can supersede provisional records by stable code match", () => {
+  const preview = createCampusImportPreview({
+    id: "official-buildings",
+    entityType: "building",
+    source: {
+      authority: "UC San Diego",
+      status: "official",
+      sourceType: "geojson",
+      confidence: "official",
+      verified: true
+    },
+    input: {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          properties: {
+            building_id: "UCSD-GEISEL",
+            building_name: "Geisel Library",
+            building_code: "GEISEL"
+          },
+          geometry: {
+            type: "Point",
+            coordinates: [-117.23758, 32.88114]
+          }
+        }
+      ]
+    }
+  });
+
+  assert.equal(preview.valid, true);
+  assert.equal(preview.summary.normalized, 1);
+  assert.equal(preview.summary.supersede, 1);
+  assert.equal(preview.matches[0].matchId, "geisel-library");
+  assert.equal(preview.normalized[0].source.status, "official");
+});
+
+test("ambiguous GIS matches require review instead of silent merging", () => {
+  const match = matchCampusRecord(
+    { id: "new-record", name: "Alpha Hall", aliases: ["shared"], code: "" },
+    [
+      { id: "alpha-one", name: "Alpha One", aliases: ["shared"], code: "" },
+      { id: "alpha-two", name: "Alpha Two", aliases: ["shared"], code: "" }
+    ],
+    "building"
+  );
+
+  assert.equal(match.action, "review");
+  assert.equal(match.reason, "ambiguous-match");
+  assert.deepEqual(match.candidates.map((candidate) => candidate.record.id), ["alpha-one", "alpha-two"]);
+});
+
+test("campus GIS import runs summarize create, supersede, and rejected records", () => {
+  const run = createCampusImportRun({
+    source: {
+      authority: "UC San Diego",
+      status: "official",
+      sourceType: "geojson",
+      confidence: "official"
+    },
+    datasets: [
+      {
+        id: "buildings",
+        entityType: "building",
+        input: {
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              properties: {
+                building_name: "Geisel Library",
+                building_code: "GEISEL"
+              },
+              geometry: { type: "Point", coordinates: [-117.23758, 32.88114] }
+            },
+            {
+              type: "Feature",
+              properties: {
+                building_id: "NEW-101",
+                building_name: "New Official Test Building"
+              },
+              geometry: { type: "Point", coordinates: [-117.238, 32.881] }
+            },
+            {
+              type: "Feature",
+              properties: {
+                building_id: "NO-GEOMETRY",
+                building_name: "Missing Geometry"
+              },
+              geometry: null
+            }
+          ]
+        }
+      }
+    ]
+  });
+
+  assert.equal(run.datasetCount, 1);
+  assert.equal(run.summary.features, 3);
+  assert.equal(run.summary.normalized, 0);
+  assert.equal(run.previews[0].valid, false);
+  assert.ok(run.previews[0].validation.errors.some((error) => error.includes("missing geometry")));
 });

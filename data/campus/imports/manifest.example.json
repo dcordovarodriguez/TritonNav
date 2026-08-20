@@ -1,0 +1,45 @@
+{
+  "source": {
+    "authority": "UC San Diego",
+    "dataset": "Example official GIS data drop",
+    "status": "official",
+    "sourceType": "geojson",
+    "sourceUrl": "",
+    "verified": true,
+    "verifiedAt": null,
+    "confidence": "official",
+    "notes": "Replace this example with the provenance supplied by UCSD GIS."
+  },
+  "datasets": [
+    {
+      "id": "buildings",
+      "entityType": "building",
+      "path": "raw/buildings.geojson",
+      "required": false
+    },
+    {
+      "id": "entrances",
+      "entityType": "entrance",
+      "path": "raw/entrances.geojson",
+      "required": false
+    },
+    {
+      "id": "pedestrian-paths",
+      "entityType": "path",
+      "path": "raw/pedestrian-paths.geojson",
+      "required": false
+    },
+    {
+      "id": "accessibility-features",
+      "entityType": "accessibility",
+      "path": "raw/accessibility.geojson",
+      "required": false
+    },
+    {
+      "id": "utilities",
+      "entityType": "utility",
+      "path": "raw/utilities.geojson",
+      "required": false
+    }
+  ]
+}
