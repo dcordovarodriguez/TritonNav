@@ -15,7 +15,7 @@ services:
     container_name: ${VALHALLA_CONTAINER_NAME:-tritonnav-valhalla}
     restart: unless-stopped
     ports:
-      - "${VALHALLA_API_PORT:-8002}:8002"
+      - "127.0.0.1:${VALHALLA_API_PORT:-8002}:8002"
     entrypoint:
       - /bin/bash
       - -lc

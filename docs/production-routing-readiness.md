@@ -90,6 +90,7 @@ If Valhalla is remote:
 After setting production `VALHALLA_BASE_URL`, verify:
 
 - `npm run check:valhalla` identifies the provider.
+- `npm run check:production-routing` identifies the endpoint category and validates one Valhalla route without printing provider URLs or credentials.
 - Geisel Library to Price Center returns `provider=valhalla` and `isEstimated=false`.
 - MANDE B202 to Sixth College returns `provider=valhalla` and `isEstimated=false`.
 - Route geometry is a non-empty GeoJSON `LineString`.
@@ -98,3 +99,11 @@ After setting production `VALHALLA_BASE_URL`, verify:
 ## Current Blocker
 
 Production routing is not configured until a reachable Valhalla host exists and `VALHALLA_BASE_URL` is set in the deployment environment. The current local `localhost:8002` service is not reachable from Vercel.
+
+If production returns:
+
+```json
+{"error":{"code":"PROVIDER_CONFIGURATION","message":"Walking routing provider is not configured."}}
+```
+
+the failure is configuration/network readiness, not a browser routing failure. TritonNav should continue showing a truthful route-unavailable state until a remote Valhalla endpoint is available.
