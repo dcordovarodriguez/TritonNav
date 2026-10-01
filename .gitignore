@@ -8,6 +8,8 @@ coverage
 *.eps
 *.ase
 *.pdf
+!research/figures/*.pdf
+!research/paper/*.pdf
 TritonNav_branding/
 
 # Local design/reference artifacts
@@ -19,6 +21,12 @@ UCSD fonts:colors/
 .env*
 TritonNav_Xcode_Snapshot_2026-07-20/
 mobile view -tritonnav photos/
+
+# Local Xcode UI state and accidental duplicate generated workspaces/configs
+/App.xcworkspace/
+ios/App/App/config 2.xml
+ios/App/App/config 3.xml
+ios/App/App/config 4.xml
 
 # Self-hosted Valhalla generated data and local runtime artifacts
 infrastructure/valhalla/osm/*

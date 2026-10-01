@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
-import CampusUtilityRail from "@/components/CampusUtilityRail";
+import { useEffect, useMemo, useRef, useState } from "react";
 import MapView from "@/components/MapView";
 import { getLocationById } from "@/data/locations";
 import { useLocation } from "@/hooks/useLocation";
 import destinationIntelligence from "@/lib/campus/destinationIntelligence";
+import campusResolver from "@/lib/campus/resolver";
 import { calculateDistanceMeters, metersToFeet } from "@/lib/distance";
 import { createRouteLineString } from "@/lib/mapGeometry";
 import {
@@ -16,32 +16,64 @@ import {
   searchCampusLocations
 } from "@/lib/navigation";
 import { formatDurationMinutes } from "@/lib/utils";
+import {
+  ORIGIN_MODES,
+  areRouteEndpointsEquivalent,
+  resolveActiveRouteOrigin
+} from "@/lib/originSelection.mjs";
 import { requestWalkingRoute } from "@/services/routingService.mjs";
 
 const { createDestinationIntelligence, UTILITY_CATEGORIES } = destinationIntelligence;
+const { getAllCampusBuildings, getAllCampusColleges } = campusResolver;
+const CAMPUS_BUILDING_NAMES = new Map(
+  getAllCampusBuildings().map((building) => [building.id, building.name])
+);
 
 const DEFAULT_QUERY = "";
 const DEMO_SEARCHES = ["CSB 115", "MOS 0114", "MANDE B202", "DIB 122"];
 const DEMO_ACTIONS = [
   {
+    id: "class",
     label: "Find My Class",
     query: "CSB 115",
     detail: "Room route",
     icon: "CS"
   },
   {
+    id: "building",
     label: "Find a Building",
-    query: "DIB 122",
-    detail: "Building + room",
+    query: "Design and Innovation Building",
+    detail: "Campus buildings",
     icon: "BLD"
   },
   {
+    id: "colleges",
     label: "Explore Colleges",
-    query: "Sixth",
-    detail: "College result",
+    query: "",
+    detail: "All eight colleges",
     icon: "COL"
   }
 ];
+const COLLEGE_MARKER_LABELS = {
+  "eighth-college": "Eighth",
+  "marshall-college": "Marshall",
+  "muir-college": "Muir",
+  "revelle-college": "Revelle",
+  "roosevelt-college": "ERC",
+  "seventh-college": "Seventh",
+  "sixth-college-area": "Sixth",
+  "warren-college": "Warren"
+};
+const CAMPUS_COLLEGE_MARKERS = getAllCampusColleges().map((college) => ({
+  id: college.id,
+  name: college.name,
+  label: COLLEGE_MARKER_LABELS[college.id] || college.name.replace(/\s+College$/i, ""),
+  coordinates: college.centroid,
+  source: college.source,
+  associatedBuildings: college.associatedBuildingIds.map(
+    (buildingId) => CAMPUS_BUILDING_NAMES.get(buildingId) || buildingId
+  )
+}));
 const FALLBACK_ORIGIN = {
   lat: 32.88114,
   lng: -117.23758,
@@ -70,6 +102,7 @@ const DEVELOPMENT_TEST_ORIGINS = DEVELOPMENT_TEST_ORIGIN_IDS.map((id) => {
 }).filter(Boolean);
 const SHEET_STATES = {
   DISCOVERY: "discovery",
+  COLLEGES: "colleges",
   RESULTS: "results",
   SELECTED: "selected",
   ROUTE: "route"
@@ -87,6 +120,10 @@ const SHEET_POSITIONS = {
   COLLAPSED: "collapsed"
 };
 const SHEET_DRAG_THRESHOLD = 56;
+const SEARCH_MODES = {
+  DESTINATION: "destination",
+  ORIGIN: "origin"
+};
 const WALKING_METERS_PER_MINUTE = 80.4672;
 const METERS_PER_MILE = 1609.344;
 const FEET_PER_MILE = 5280;
@@ -247,7 +284,24 @@ function getRouteErrorMessage(error) {
   return error?.message || "Walking route could not be calculated.";
 }
 
-function getCollapsedSheetSummary({ query, routePreview, sheetState, visibleResultCount }) {
+function getCollapsedSheetSummary({
+  exploredCollege,
+  query,
+  routePreview,
+  sheetState,
+  visibleResultCount
+}) {
+  if (sheetState === SHEET_STATES.COLLEGES) {
+    return {
+      title: exploredCollege?.name || "Explore Colleges",
+      detail: exploredCollege
+        ? exploredCollege.associatedBuildings.length
+          ? `${exploredCollege.associatedBuildings.length} linked destinations`
+          : "Representative campus anchor"
+        : "Tap a college marker"
+    };
+  }
+
   if (sheetState === SHEET_STATES.SELECTED && routePreview) {
     return {
       title: routePreview.destinationLabel,
@@ -456,9 +510,16 @@ export default function HomePage() {
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [developmentOriginId, setDevelopmentOriginId] = useState("current");
+  const [originMode, setOriginMode] = useState(ORIGIN_MODES.CURRENT);
+  const [selectedOrigin, setSelectedOrigin] = useState(null);
+  const [originQuery, setOriginQuery] = useState("");
+  const [searchMode, setSearchMode] = useState(SEARCH_MODES.DESTINATION);
+  const [originMenuOpen, setOriginMenuOpen] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [collegeExploreActive, setCollegeExploreActive] = useState(false);
+  const [selectedCollegeId, setSelectedCollegeId] = useState("");
   const [activeUtilityId, setActiveUtilityId] = useState("");
   const [roomLookupQuery, setRoomLookupQuery] = useState("");
-  const [useCampusPreviewOrigin, setUseCampusPreviewOrigin] = useState(false);
   const [routeRequest, setRouteRequest] = useState({
     status: ROUTE_STATES.IDLE,
     route: null,
@@ -469,6 +530,8 @@ export default function HomePage() {
   });
   const routeAbortRef = useRef(null);
   const routeSequenceRef = useRef(0);
+  const searchInputRef = useRef(null);
+  const searchBlurTimerRef = useRef(null);
   const dragStateRef = useRef({
     pointerId: null,
     startY: 0,
@@ -476,29 +539,73 @@ export default function HomePage() {
     didDrag: false
   });
   const { location, status, coverage, retryLocation } = useLocation();
-  const developmentOrigin = isDevelopment && developmentOriginId !== "current"
-    ? DEVELOPMENT_TEST_ORIGINS.find((testOrigin) => testOrigin.id === developmentOriginId) || null
-    : null;
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+
+    function updateViewportMetrics() {
+      const viewportHeight = viewport?.height || window.innerHeight;
+      const viewportOffsetTop = viewport?.offsetTop || 0;
+      const keyboardInset = Math.max(
+        0,
+        window.innerHeight - viewportHeight - viewportOffsetTop
+      );
+
+      document.documentElement.style.setProperty(
+        "--tritonnav-visual-viewport-height",
+        `${viewportHeight}px`
+      );
+      document.documentElement.style.setProperty(
+        "--tritonnav-visual-viewport-offset-top",
+        `${viewportOffsetTop}px`
+      );
+      document.documentElement.style.setProperty(
+        "--tritonnav-keyboard-inset",
+        `${keyboardInset}px`
+      );
+    }
+
+    updateViewportMetrics();
+    viewport?.addEventListener("resize", updateViewportMetrics);
+    viewport?.addEventListener("scroll", updateViewportMetrics);
+    window.addEventListener("resize", updateViewportMetrics);
+
+    return () => {
+      window.clearTimeout(searchBlurTimerRef.current);
+      viewport?.removeEventListener("resize", updateViewportMetrics);
+      viewport?.removeEventListener("scroll", updateViewportMetrics);
+      window.removeEventListener("resize", updateViewportMetrics);
+      document.documentElement.style.removeProperty("--tritonnav-visual-viewport-height");
+      document.documentElement.style.removeProperty("--tritonnav-visual-viewport-offset-top");
+      document.documentElement.style.removeProperty("--tritonnav-keyboard-inset");
+    };
+  }, []);
+
   const isOutsideRoutingCoverage = Boolean(location && coverage?.status === "outside");
   const locationFocusKey = location
     ? `${status}:${location.lat.toFixed(6)},${location.lng.toFixed(6)}`
     : "";
-  const routeOrigin =
-    developmentOrigin ||
-    (location && coverage?.isInside ? location : null) ||
-    (isOutsideRoutingCoverage && !useCampusPreviewOrigin ? null : FALLBACK_ORIGIN);
+  const routeOrigin = resolveActiveRouteOrigin({
+    mode: originMode,
+    selectedOrigin,
+    deviceLocation: location,
+    deviceIsInsideCoverage: Boolean(coverage?.isInside)
+  });
   const mapCurrentLocation = location || null;
-  const routeOriginLabel = developmentOrigin
-    ? `Development test origin: ${developmentOrigin.label}`
+  const routeOriginLabel = originMode === ORIGIN_MODES.SELECTED && selectedOrigin
+    ? selectedOrigin.label
     : location && coverage?.isInside
       ? "Current location"
-      : isOutsideRoutingCoverage && useCampusPreviewOrigin
-        ? `Preview from campus: ${FALLBACK_ORIGIN.label}`
-        : isOutsideRoutingCoverage
-          ? "Outside UCSD routing area"
-      : FALLBACK_ORIGIN.label;
+      : isOutsideRoutingCoverage
+        ? "Outside UCSD routing area"
+        : "Current location not set";
   const hasSearchQuery = query.trim().length > 0;
-  const results = useMemo(() => searchCampusLocations(query), [query]);
+  const isOriginSearch = searchMode === SEARCH_MODES.ORIGIN;
+  const activeSearchQuery = isOriginSearch ? originQuery : query;
+  const hasActiveSearchQuery = activeSearchQuery.trim().length > 0;
+  const destinationResults = useMemo(() => searchCampusLocations(query), [query]);
+  const originResults = useMemo(() => searchCampusLocations(originQuery), [originQuery]);
+  const activeResults = isOriginSearch ? originResults : destinationResults;
   const navigationData = useMemo(
     () =>
       selectedResult
@@ -518,37 +625,57 @@ export default function HomePage() {
   const activeUtilityResults = activeUtilityId
     ? intelligence?.utilities?.[activeUtilityId]?.results || []
     : [];
-  const utilityMarkers =
-    activeUtility?.mapLayer && activeUtilityResults.length
-      ? activeUtilityResults.map((item) => ({
-          id: item.id,
-          name: item.name,
-          categoryId: activeUtility.id,
-          coordinates: item.coordinates,
-          iconLabel: activeUtility.iconLabel
-        }))
-      : [];
+  const utilityMarkers = useMemo(
+    () =>
+      activeUtility?.mapLayer && activeUtilityResults.length
+        ? activeUtilityResults.map((item) => ({
+            id: item.id,
+            name: item.name,
+            categoryId: activeUtility.id,
+            coordinates: item.coordinates,
+            iconLabel: activeUtility.iconLabel
+          }))
+        : [],
+    [activeUtility, activeUtilityResults]
+  );
+  const collegeMarkers = useMemo(
+    () =>
+      collegeExploreActive
+        ? CAMPUS_COLLEGE_MARKERS.map((college) => ({
+            ...college,
+            isSelected: selectedCollegeId === college.id
+          }))
+        : [],
+    [collegeExploreActive, selectedCollegeId]
+  );
+  const exploredCollege = collegeExploreActive
+    ? CAMPUS_COLLEGE_MARKERS.find((college) => college.id === selectedCollegeId) || null
+    : null;
   const destination = navigationData?.destination;
   const routingDestination = navigationData?.routingDestination || destination;
   const selectedKey = selectedResult
     ? `${selectedResult.buildingId}:${selectedResult.room || ""}`
     : "";
-  const visibleResults = results.slice(0, 6);
+  const visibleResults = activeResults.slice(0, 6);
   const origin = routeOrigin;
-  const routePreview = navigationData
-    ? routeOrigin
-      ? buildRoutePreview({
-        origin,
-        destination: routingDestination,
-        destinationLabel: navigationData.routeDetails.destinationLabel,
-        originLabel: routeOriginLabel
-      })
-      : null
-    : null;
+  const routePreview = useMemo(
+    () =>
+      navigationData && routeOrigin
+        ? buildRoutePreview({
+            origin,
+            destination: routingDestination,
+            destinationLabel: navigationData.routeDetails.destinationLabel,
+            originLabel: routeOriginLabel
+          })
+        : null,
+    [navigationData, origin, routeOrigin, routeOriginLabel, routingDestination]
+  );
   const selectedCollege = navigationData?.college;
   const selectedRecreationFacility = navigationData?.recreationFacility;
   const arrivalSummary = getArrivalSummary(navigationData?.routeDetails);
-  const shouldShowResults = sheetState === SHEET_STATES.RESULTS && hasSearchQuery;
+  const shouldShowResults =
+    sheetState === SHEET_STATES.RESULTS &&
+    (hasActiveSearchQuery || isSearchFocused || isOriginSearch);
   const shouldShowDestination = sheetState === SHEET_STATES.SELECTED && selectedResult && navigationData;
   const shouldShowRoute = sheetState === SHEET_STATES.ROUTE && selectedResult && navigationData;
   const routeDisplay = routeRequest.route
@@ -588,21 +715,31 @@ export default function HomePage() {
     temporaryFallbackActive: routeRequest.status === ROUTE_STATES.TEMPORARY_FALLBACK,
     requestDurationMs: routeRequest.requestDurationMs
   };
-  const routeLineGeometry =
-    shouldShowRoute && routeRequest.route
-      ? buildRouteFeatureFromNormalizedRoute(routeRequest.route)
-    : shouldShowRoute && routePreview?.geoPath && routeRequest.status === ROUTE_STATES.TEMPORARY_FALLBACK
-        ? createRouteLineString(routePreview.geoPath)
-        : null;
-  const routeConnectorGeometry =
-    shouldShowRoute && routeRequest.status === ROUTE_STATES.SUCCESS
-      ? createFinalConnectorGeometry(routingDestination, destination)
-      : null;
+  const routeLineGeometry = useMemo(
+    () =>
+      shouldShowRoute && routeRequest.route
+        ? buildRouteFeatureFromNormalizedRoute(routeRequest.route)
+        : shouldShowRoute &&
+            routePreview?.geoPath &&
+            routeRequest.status === ROUTE_STATES.TEMPORARY_FALLBACK
+          ? createRouteLineString(routePreview.geoPath)
+          : null,
+    [routePreview, routeRequest.route, routeRequest.status, shouldShowRoute]
+  );
+  const routeConnectorGeometry = useMemo(
+    () =>
+      shouldShowRoute && routeRequest.status === ROUTE_STATES.SUCCESS
+        ? createFinalConnectorGeometry(routingDestination, destination)
+        : null,
+    [destination, routeRequest.status, routingDestination, shouldShowRoute]
+  );
   const mapMode = shouldShowRoute
     ? "route"
     : destination
       ? "destination"
-      : mapCurrentLocation
+      : collegeExploreActive
+        ? "college-overview"
+      : routeOrigin || mapCurrentLocation
         ? "current-location"
         : "default";
   const isSheetExpanded = sheetPosition === SHEET_POSITIONS.EXPANDED;
@@ -611,19 +748,20 @@ export default function HomePage() {
       ? "search results"
       : sheetState === SHEET_STATES.DISCOVERY
         ? "destination details"
+        : sheetState === SHEET_STATES.COLLEGES
+          ? "college explorer"
         : "destination details";
   const sheetToggleLabel = `${isSheetExpanded ? "Collapse" : "Expand"} ${sheetLabelNoun}`;
   const collapsedSummary = getCollapsedSheetSummary({
-    query,
+    exploredCollege,
+    query: activeSearchQuery,
     routePreview: routeDisplay,
     sheetState,
     visibleResultCount: visibleResults.length
   });
 
-  function selectResult(result) {
+  function resetRouteRequest() {
     routeAbortRef.current?.abort();
-    setSelectedResult(result);
-    setRoomLookupQuery("");
     setRouteRequest({
       status: ROUTE_STATES.IDLE,
       route: null,
@@ -632,24 +770,127 @@ export default function HomePage() {
       httpStatus: null,
       requestDurationMs: null
     });
-    setSheetState(SHEET_STATES.SELECTED);
-    setSheetPosition(SHEET_POSITIONS.EXPANDED);
   }
 
-  function runDemoSearch(queryValue) {
+  function selectResult(
+    result,
+    { collapseSheet = false, preserveCollegeExplorer = false } = {}
+  ) {
+    if (result.type === "college") {
+      selectCollegeMarker(result.destinationId, { collapseSheet });
+      return;
+    }
+
+    resetRouteRequest();
+    setSelectedResult(result);
+    if (!preserveCollegeExplorer) {
+      setCollegeExploreActive(false);
+      setSelectedCollegeId("");
+    }
+    setRoomLookupQuery("");
+    setSearchMode(SEARCH_MODES.DESTINATION);
+    setSheetState(SHEET_STATES.SELECTED);
+    setSheetPosition(collapseSheet ? SHEET_POSITIONS.COLLAPSED : SHEET_POSITIONS.EXPANDED);
+    searchInputRef.current?.blur();
+  }
+
+  function selectOriginResult(result) {
+    const routingPoint = getCampusRoutingPoint(
+      result.destinationId || result.buildingId,
+      result.room
+    );
+
+    if (!routingPoint) return;
+
+    resetRouteRequest();
+    setSelectedOrigin({
+      type: ORIGIN_MODES.SELECTED,
+      coordinate: { lat: routingPoint.lat, lng: routingPoint.lng },
+      label: getDisplayTitle(result),
+      source: routingPoint.source || "campus-search"
+    });
+    setOriginMode(ORIGIN_MODES.SELECTED);
+    setOriginQuery(getDisplayTitle(result));
+    setDevelopmentOriginId("current");
+    setSearchMode(SEARCH_MODES.DESTINATION);
+    setCollegeExploreActive(false);
+    setSelectedCollegeId("");
+    setOriginMenuOpen(false);
+    setSheetState(selectedResult ? SHEET_STATES.SELECTED : SHEET_STATES.DISCOVERY);
+    setSheetPosition(SHEET_POSITIONS.EXPANDED);
+    searchInputRef.current?.blur();
+  }
+
+  function selectActiveSearchResult(result) {
+    if (isOriginSearch) {
+      selectOriginResult(result);
+      return;
+    }
+
+    selectResult(result);
+  }
+
+  function runDemoSearch(queryValue, { collapseSheet = false } = {}) {
     setQuery(queryValue);
     const [demoResult] = searchCampusLocations(queryValue);
-    if (demoResult) selectResult(demoResult);
+    if (demoResult) selectResult(demoResult, { collapseSheet });
+  }
+
+  function openCollegeExplorer() {
+    resetRouteRequest();
+    setQuery("");
+    setSelectedResult(null);
+    setActiveUtilityId("");
+    setRoomLookupQuery("");
+    setSearchMode(SEARCH_MODES.DESTINATION);
+    setCollegeExploreActive(true);
+    setSelectedCollegeId("");
+    setSheetState(SHEET_STATES.COLLEGES);
+    setSheetPosition(SHEET_POSITIONS.COLLAPSED);
+    searchInputRef.current?.blur();
+  }
+
+  function runDemoAction(action) {
+    if (action.id === "colleges") {
+      openCollegeExplorer();
+      return;
+    }
+
+    if (action.id === "building") {
+      setQuery(action.query);
+      const buildingResult = searchCampusLocations(action.query).find((result) => !result.room);
+      if (buildingResult) selectResult(buildingResult, { collapseSheet: true });
+      return;
+    }
+
+    runDemoSearch(action.query, { collapseSheet: true });
+  }
+
+  function selectCollegeMarker(collegeId, { collapseSheet = true } = {}) {
+    const college = CAMPUS_COLLEGE_MARKERS.find((item) => item.id === collegeId);
+    if (!college) return;
+
+    resetRouteRequest();
+    setQuery("");
+    setSelectedResult(null);
+    setActiveUtilityId("");
+    setRoomLookupQuery("");
+    setSearchMode(SEARCH_MODES.DESTINATION);
+    setCollegeExploreActive(true);
+    setSelectedCollegeId(college.id);
+    setSheetState(SHEET_STATES.COLLEGES);
+    setSheetPosition(collapseSheet ? SHEET_POSITIONS.COLLAPSED : SHEET_POSITIONS.EXPANDED);
+    searchInputRef.current?.blur();
   }
 
   function submitSearch(event) {
     event.preventDefault();
-    if (results[0]) {
-      selectResult(results[0]);
+    if (activeResults[0]) {
+      selectActiveSearchResult(activeResults[0]);
       return;
     }
 
-    setSheetState(hasSearchQuery ? SHEET_STATES.RESULTS : SHEET_STATES.DISCOVERY);
+    setSheetState(hasActiveSearchQuery ? SHEET_STATES.RESULTS : SHEET_STATES.DISCOVERY);
   }
 
   function selectFeatured(queryValue) {
@@ -657,54 +898,104 @@ export default function HomePage() {
   }
 
   function updateQuery(value) {
-    routeAbortRef.current?.abort();
+    resetRouteRequest();
     setQuery(value);
     setSelectedResult(null);
+    setCollegeExploreActive(false);
+    setSelectedCollegeId("");
     setActiveUtilityId("");
     setRoomLookupQuery("");
-    setUseCampusPreviewOrigin(false);
-    setRouteRequest({
-      status: ROUTE_STATES.IDLE,
-      route: null,
-      error: "",
-      errorCode: "",
-      httpStatus: null,
-      requestDurationMs: null
-    });
     setSheetState(value.trim() ? SHEET_STATES.RESULTS : SHEET_STATES.DISCOVERY);
   }
 
+  function updateOriginQuery(value) {
+    resetRouteRequest();
+    setOriginQuery(value);
+    setSheetState(SHEET_STATES.RESULTS);
+  }
+
+  function updateActiveSearch(value) {
+    if (isOriginSearch) {
+      updateOriginQuery(value);
+      return;
+    }
+
+    updateQuery(value);
+  }
+
   function clearSearch() {
-    routeAbortRef.current?.abort();
+    resetRouteRequest();
     setQuery("");
+    setCollegeExploreActive(false);
+    setSelectedCollegeId("");
     setActiveUtilityId("");
     setRoomLookupQuery("");
-    setUseCampusPreviewOrigin(false);
-    setRouteRequest({
-      status: ROUTE_STATES.IDLE,
-      route: null,
-      error: "",
-      errorCode: "",
-      httpStatus: null,
-      requestDurationMs: null
-    });
     setSheetState(SHEET_STATES.DISCOVERY);
   }
 
+  function clearActiveSearch() {
+    if (isOriginSearch) {
+      setOriginQuery("");
+      setSheetState(SHEET_STATES.RESULTS);
+      return;
+    }
+
+    clearSearch();
+  }
+
+  function beginSetLocation() {
+    resetRouteRequest();
+    setCollegeExploreActive(false);
+    setSelectedCollegeId("");
+    setOriginMenuOpen(false);
+    setOriginQuery("");
+    setSearchMode(SEARCH_MODES.ORIGIN);
+    setSheetState(SHEET_STATES.RESULTS);
+    setSheetPosition(SHEET_POSITIONS.EXPANDED);
+    requestAnimationFrame(() => searchInputRef.current?.focus());
+  }
+
+  function useCurrentLocation() {
+    resetRouteRequest();
+    setCollegeExploreActive(false);
+    setSelectedCollegeId("");
+    setOriginMode(ORIGIN_MODES.CURRENT);
+    setSelectedOrigin(null);
+    setOriginQuery("");
+    setSearchMode(SEARCH_MODES.DESTINATION);
+    setOriginMenuOpen(false);
+    setDevelopmentOriginId("current");
+    setSheetState(selectedResult ? SHEET_STATES.SELECTED : SHEET_STATES.DISCOVERY);
+    retryLocation();
+  }
+
+  function handleSearchFocus() {
+    window.clearTimeout(searchBlurTimerRef.current);
+    setIsSearchFocused(true);
+    setCollegeExploreActive(false);
+    setOriginMenuOpen(false);
+    setSheetState(SHEET_STATES.RESULTS);
+    setSheetPosition(SHEET_POSITIONS.EXPANDED);
+  }
+
+  function handleSearchBlur() {
+    window.clearTimeout(searchBlurTimerRef.current);
+    searchBlurTimerRef.current = window.setTimeout(() => {
+      setIsSearchFocused(false);
+      if (!isOriginSearch && !query.trim() && !selectedResult) {
+        setSheetState(SHEET_STATES.DISCOVERY);
+      }
+    }, 120);
+  }
+
   function changeDestination() {
-    routeAbortRef.current?.abort();
+    resetRouteRequest();
     setSelectedResult(null);
+    setCollegeExploreActive(false);
+    setSelectedCollegeId("");
     setActiveUtilityId("");
     setRoomLookupQuery("");
-    setUseCampusPreviewOrigin(false);
-    setRouteRequest({
-      status: ROUTE_STATES.IDLE,
-      route: null,
-      error: "",
-      errorCode: "",
-      httpStatus: null,
-      requestDurationMs: null
-    });
+    setSearchMode(SEARCH_MODES.DESTINATION);
     setSheetState(query.trim() ? SHEET_STATES.RESULTS : SHEET_STATES.DISCOVERY);
   }
 
@@ -715,8 +1006,22 @@ export default function HomePage() {
       setRouteRequest({
         status: ROUTE_STATES.ERROR,
         route: null,
-        error: "You're currently outside TritonNav's UCSD routing area. Choose Preview from campus or a development origin to calculate a UCSD route.",
+        error: "Choose Current Location while on campus, or set a UCSD starting point before requesting directions.",
         errorCode: "ORIGIN_OUTSIDE_ROUTING_AREA",
+        httpStatus: null,
+        requestDurationMs: null
+      });
+      setSheetState(SHEET_STATES.ROUTE);
+      setSheetPosition(SHEET_POSITIONS.EXPANDED);
+      return;
+    }
+
+    if (areRouteEndpointsEquivalent(origin, routingDestination)) {
+      setRouteRequest({
+        status: ROUTE_STATES.ERROR,
+        route: null,
+        error: "Choose a destination that is different from your starting point.",
+        errorCode: "ORIGIN_MATCHES_DESTINATION",
         httpStatus: null,
         requestDurationMs: null
       });
@@ -789,17 +1094,28 @@ export default function HomePage() {
   }
 
   function updateDevelopmentOrigin(event) {
-    routeAbortRef.current?.abort();
-    setDevelopmentOriginId(event.target.value);
-    setUseCampusPreviewOrigin(false);
-    setRouteRequest({
-      status: ROUTE_STATES.IDLE,
-      route: null,
-      error: "",
-      errorCode: "",
-      httpStatus: null,
-      requestDurationMs: null
-    });
+    const nextOriginId = event.target.value;
+    setDevelopmentOriginId(nextOriginId);
+    resetRouteRequest();
+
+    if (nextOriginId === "current") {
+      setOriginMode(ORIGIN_MODES.CURRENT);
+      setSelectedOrigin(null);
+    } else {
+      const nextOrigin = DEVELOPMENT_TEST_ORIGINS.find(
+        (testOrigin) => testOrigin.id === nextOriginId
+      );
+      if (nextOrigin) {
+        setOriginMode(ORIGIN_MODES.SELECTED);
+        setSelectedOrigin({
+          type: ORIGIN_MODES.SELECTED,
+          coordinate: { lat: nextOrigin.lat, lng: nextOrigin.lng },
+          label: nextOrigin.label,
+          source: nextOrigin.routingCoordinateSource
+        });
+      }
+    }
+
     if (selectedResult) {
       setSheetState(SHEET_STATES.SELECTED);
       setSheetPosition(SHEET_POSITIONS.EXPANDED);
@@ -807,16 +1123,7 @@ export default function HomePage() {
   }
 
   function requestDeviceLocation() {
-    setUseCampusPreviewOrigin(false);
-    retryLocation();
-  }
-
-  function previewFromCampus() {
-    setUseCampusPreviewOrigin(true);
-    setSheetPosition(SHEET_POSITIONS.EXPANDED);
-    if (selectedResult) {
-      setSheetState(SHEET_STATES.SELECTED);
-    }
+    useCurrentLocation();
   }
 
   function selectUtilityCategory(categoryId) {
@@ -906,8 +1213,19 @@ export default function HomePage() {
     event.currentTarget.releasePointerCapture?.(event.pointerId);
   }
 
+  const originControlLabel =
+    originMode === ORIGIN_MODES.SELECTED && selectedOrigin
+      ? selectedOrigin.label
+      : getLocationLabel(status, location, coverage);
+  const canRequestRoute =
+    hasCoordinates(origin) &&
+    hasCoordinates(routingDestination) &&
+    !areRouteEndpointsEquivalent(origin, routingDestination);
+
   return (
-    <main className="map-first-page">
+    <main
+      className={`map-first-page ${isSearchFocused ? "map-first-page-keyboard-open" : ""}`}
+    >
       <section className="campus-map-shell" aria-label="UCSD campus map search">
         <div className="map-top-bar">
           <div className="map-brand-row">
@@ -919,7 +1237,7 @@ export default function HomePage() {
           </div>
           <form className="map-search-form" onSubmit={submitSearch}>
             <label className="sr-only" htmlFor="campus-search">
-              Search UCSD destinations
+              {isOriginSearch ? "Search for a UCSD starting point" : "Search UCSD destinations"}
             </label>
             <span className="map-search-icon" aria-hidden="true">
               ⌕
@@ -928,16 +1246,19 @@ export default function HomePage() {
               autoComplete="off"
               className="map-search-input"
               id="campus-search"
-              onChange={(event) => updateQuery(event.target.value)}
-              placeholder="Where are you going?"
+              onBlur={handleSearchBlur}
+              onChange={(event) => updateActiveSearch(event.target.value)}
+              onFocus={handleSearchFocus}
+              placeholder={isOriginSearch ? "Set starting point" : "Where are you going?"}
+              ref={searchInputRef}
               type="search"
-              value={query}
+              value={activeSearchQuery}
             />
-            {query ? (
+            {activeSearchQuery ? (
               <button
                 aria-label="Clear search"
                 className="map-search-clear"
-                onClick={clearSearch}
+                onClick={clearActiveSearch}
                 type="button"
               >
                 ×
@@ -964,20 +1285,47 @@ export default function HomePage() {
               </select>
             </div>
           ) : null}
-          <button
-            className="map-location-button"
-            onClick={requestDeviceLocation}
-            title="Use current location"
-            type="button"
-          >
-            <span className="map-location-dot" />
-            <span>{getLocationLabel(status, location, coverage)}</span>
-          </button>
+          <div className="map-origin-control">
+            <button
+              aria-expanded={originMenuOpen}
+              aria-haspopup="menu"
+              className="map-location-button"
+              onClick={() => setOriginMenuOpen((isOpen) => !isOpen)}
+              title="Choose starting point"
+              type="button"
+            >
+              <span className="map-location-dot" />
+              <span className="map-origin-button-copy">
+                <small>Starting point</small>
+                <strong>{originControlLabel}</strong>
+              </span>
+              <span className="map-origin-chevron" aria-hidden="true">⌄</span>
+            </button>
+            {originMenuOpen ? (
+              <div className="map-origin-menu" role="menu" aria-label="Starting point">
+                <button onClick={requestDeviceLocation} role="menuitem" type="button">
+                  <span className="map-location-dot" />
+                  <span>
+                    <strong>Current Location</strong>
+                    <small>Use this device</small>
+                  </span>
+                </button>
+                <button onClick={beginSetLocation} role="menuitem" type="button">
+                  <span className="map-origin-pin" aria-hidden="true">+</span>
+                  <span>
+                    <strong>Set Location</strong>
+                    <small>Choose a UCSD place</small>
+                  </span>
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
 
         <div className="campus-map-frame">
           <MapView
             bottomSheetState={sheetPosition}
+            exploreMarkers={collegeMarkers}
             currentLocation={mapCurrentLocation}
             currentLocationStatus={status}
             fallbackLocation={FALLBACK_ORIGIN}
@@ -985,21 +1333,19 @@ export default function HomePage() {
             allowEndpointRouteFallback={false}
             mapMode={mapMode}
             navigationData={navigationData}
+            onSelectExploreMarker={selectCollegeMarker}
+            originLabel={routeOriginLabel}
+            originLocation={routeOrigin}
+            originType={originMode}
             routeGeometry={routeLineGeometry}
             routeConnectorGeometry={routeConnectorGeometry}
             routeIsEstimated={routeRequest.status !== ROUTE_STATES.SUCCESS}
             selectedDestination={destination}
+            showFallbackOrigin={false}
             utilityMarkers={utilityMarkers}
             variant="homepage"
           />
         </div>
-
-        <CampusUtilityRail
-          activeCategoryId={activeUtilityId}
-          categories={UTILITY_CATEGORIES}
-          onSelectCategory={selectUtilityCategory}
-          sheetPosition={sheetPosition}
-        />
 
         <section
           aria-label="Destination panel"
@@ -1053,7 +1399,7 @@ export default function HomePage() {
                   <button
                     className="demo-route-button"
                     key={action.label}
-                    onClick={() => runDemoSearch(action.query)}
+                    onClick={() => runDemoAction(action)}
                     type="button"
                   >
                     <span className="demo-route-icon" aria-hidden="true">
@@ -1061,7 +1407,7 @@ export default function HomePage() {
                     </span>
                     <span className="demo-route-copy">
                       <span>{action.label}</span>
-                      <small>{action.query}</small>
+                      <small>{action.detail}</small>
                     </span>
                     <span className="demo-route-arrow" aria-hidden="true">
                       &gt;
@@ -1072,14 +1418,63 @@ export default function HomePage() {
             </div>
           ) : null}
 
+          {sheetState === SHEET_STATES.COLLEGES ? (
+            <div className="sheet-panel-content college-explorer-panel">
+              <div className="sheet-heading-row">
+                <div>
+                  <p className="eyebrow">Campus Overview</p>
+                  <h2>Explore Colleges</h2>
+                </div>
+                <button className="sheet-text-button" onClick={clearSearch} type="button">
+                  Done
+                </button>
+              </div>
+              <p className="sheet-supporting-copy">
+                Tap a representative college marker. Official territorial boundaries are not yet
+                available in TritonNav.
+              </p>
+              {exploredCollege ? (
+                <div className="college-explorer-selection">
+                  <strong>{exploredCollege.name}</strong>
+                  <span>
+                    {exploredCollege.associatedBuildings.length
+                      ? exploredCollege.associatedBuildings.join(", ")
+                      : "Linked college destinations are pending official campus data."}
+                  </span>
+                </div>
+              ) : null}
+              <div className="college-explorer-list" aria-label="UC San Diego colleges">
+                {CAMPUS_COLLEGE_MARKERS.map((college) => (
+                  <button
+                    aria-pressed={selectedCollegeId === college.id}
+                    key={college.id}
+                    onClick={() => selectCollegeMarker(college.id)}
+                    type="button"
+                  >
+                    <strong>{college.name}</strong>
+                    <span>{college.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           {shouldShowResults ? (
             <div className="sheet-panel-content">
               <div className="sheet-heading-row">
                 <div>
-                  <p className="eyebrow">Search Results</p>
-                  <h2>{visibleResults.length ? "Select a destination" : "No matches yet"}</h2>
+                  <p className="eyebrow">
+                    {isOriginSearch ? "Starting Point" : "Search Results"}
+                  </p>
+                  <h2>
+                    {visibleResults.length
+                      ? isOriginSearch
+                        ? "Select a campus origin"
+                        : "Select a destination"
+                      : "No matches yet"}
+                  </h2>
                 </div>
-                <button className="sheet-text-button" onClick={clearSearch} type="button">
+                <button className="sheet-text-button" onClick={clearActiveSearch} type="button">
                   Clear
                 </button>
               </div>
@@ -1095,7 +1490,7 @@ export default function HomePage() {
                         aria-pressed={isSelected}
                         className={`sheet-result-row ${isSelected ? "sheet-result-row-selected" : ""}`}
                         key={result.key}
-                        onClick={() => selectResult(result)}
+                        onClick={() => selectActiveSearchResult(result)}
                         type="button"
                       >
                         <span>
@@ -1117,7 +1512,9 @@ export default function HomePage() {
                 </div>
               ) : (
                 <div className="sheet-empty-state">
-                  Try CSB 115, MOS 0114, MANDE B202, DIB 122, Muir, Sixth, or Geisel.
+                  {isOriginSearch
+                    ? "Try Geisel Library, Price Center, Mandeville, Sixth College, or another UCSD place."
+                    : "Try CSB 115, MOS 0114, MANDE B202, DIB 122, Muir, Sixth, or Geisel."}
                 </div>
               )}
             </div>
@@ -1134,13 +1531,32 @@ export default function HomePage() {
                   Change
                 </button>
               </div>
-              {isOutsideRoutingCoverage && !useCampusPreviewOrigin ? (
+              <div className="route-endpoint-summary" aria-label="Route endpoints">
+                <div>
+                  <span>Starting point</span>
+                  <strong>{routeOriginLabel}</strong>
+                </div>
+                <div>
+                  <span>Destination</span>
+                  <strong>{routeDisplay.destinationLabel}</strong>
+                </div>
+              </div>
+              {originMode === ORIGIN_MODES.CURRENT && isOutsideRoutingCoverage ? (
                 <div className="inline-alert inline-alert-warning">
                   <strong>Outside UCSD routing area.</strong> TritonNav can show your real location,
-                  but the local Valhalla graph only covers UCSD. Preview from campus or choose a
-                  campus test origin before calculating a walking route.
-                  <button className="inline-alert-action" onClick={previewFromCampus} type="button">
-                    Preview from campus
+                  but the local Valhalla graph only covers UCSD. Set a campus starting point to
+                  preview a walking route while you are away.
+                  <button className="inline-alert-action" onClick={beginSetLocation} type="button">
+                    Set campus starting point
+                  </button>
+                </div>
+              ) : null}
+              {!hasCoordinates(origin) && !isOutsideRoutingCoverage ? (
+                <div className="inline-alert inline-alert-warning">
+                  <strong>Starting point needed.</strong> Use your current location or choose a UCSD
+                  place before requesting directions.
+                  <button className="inline-alert-action" onClick={beginSetLocation} type="button">
+                    Set Location
                   </button>
                 </div>
               ) : null}
@@ -1242,11 +1658,11 @@ export default function HomePage() {
               ) : null}
               <button
                 className="sheet-primary-action"
-                disabled={routeRequest.status === ROUTE_STATES.LOADING}
+                disabled={!canRequestRoute || routeRequest.status === ROUTE_STATES.LOADING}
                 onClick={previewRoute}
                 type="button"
               >
-                {routeRequest.status === ROUTE_STATES.LOADING ? "Calculating..." : "Preview Route"}
+                {routeRequest.status === ROUTE_STATES.LOADING ? "Calculating..." : "Get Directions"}
               </button>
             </div>
           ) : null}
@@ -1349,7 +1765,7 @@ export default function HomePage() {
               <div className="route-sheet-actions">
                 <button
                   className="sheet-primary-action"
-                  disabled={routeRequest.status === ROUTE_STATES.LOADING}
+                  disabled={!canRequestRoute || routeRequest.status === ROUTE_STATES.LOADING}
                   onClick={previewRoute}
                   type="button"
                 >

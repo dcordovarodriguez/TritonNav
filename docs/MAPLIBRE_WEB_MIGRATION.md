@@ -2,9 +2,9 @@
 
 ## Current Foundation
 
-TritonNav now renders the web map with MapLibre GL JS instead of an active Google Maps iframe. The existing search, destination selection, current-location state, bottom sheet, distance estimates, and temporary route preview flow remain in place.
+TritonNav now renders the web map with MapLibre GL JS instead of an active Google Maps iframe. The existing search, destination selection, current-location state, bottom sheet, and walking-route flow remain in place.
 
-The homepage and navigation route both reuse `components/MapView.jsx`. Temporary route geometry is normalized to GeoJSON in `lib/mapGeometry.js` and rendered as a MapLibre line layer. This is not real pedestrian routing yet.
+The homepage and navigation route both reuse `components/MapView.jsx`. Server-provided walking routes are normalized as GeoJSON and rendered as a MapLibre line layer. Temporary preview geometry remains available only as a clearly labeled development fallback when the Valhalla provider is unavailable.
 
 ## Worker Modules
 
@@ -21,12 +21,12 @@ The worker URLs are intentionally not cached as immutable for a year because the
 
 ## Style Provider
 
-When `NEXT_PUBLIC_MAP_STYLE_URL` is not supplied, TritonNav uses a public CARTO raster preview style:
+When `NEXT_PUBLIC_MAP_STYLE_URL` is not supplied, TritonNav uses OpenFreeMap's public Positron style:
 
-- tiles: `https://*.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png`
-- attribution: CARTO and OpenStreetMap contributors
+- style: `https://tiles.openfreemap.org/styles/positron`
+- attribution is supplied by the style and includes OpenStreetMap contributors
 
-This fallback uses no key or secret and is suitable for local development and light preview testing. It is not considered production-ready until provider terms, quota, attribution, account ownership, domain restrictions, and usage plan are confirmed.
+This fallback uses no account, key, secret, or browser cookie. A separately managed provider can still be selected for production if TritonNav later needs contractual support or service guarantees.
 
 Production should provide a MapLibre-compatible style through:
 
@@ -42,4 +42,4 @@ Google Maps remains only as an external directions handoff link through `service
 
 ## Routing Accuracy
 
-The current route line is temporary preview geometry. It is useful for validating MapLibre layers, markers, camera fitting, and UI flow, but it is not turn-by-turn walking guidance. Future pedestrian routing can replace the GeoJSON input produced by `lib/mapGeometry.js` without rewriting the `MapView` rendering surface.
+Configured routes come from TritonNav's server-side Valhalla provider and are returned with `provider=valhalla` and `isEstimated=false`. The development-only fallback remains useful for validating MapLibre layers, markers, camera fitting, and UI flow, but it is labeled as a temporary preview and is never silently presented as a real pedestrian route.
