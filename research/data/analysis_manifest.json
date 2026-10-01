@@ -1,0 +1,57 @@
+{
+  "sourceWorkbook": "TritonNav_Campus_Field_Test_Workbook.xlsx",
+  "sourceWorkbookSha256": "723d8eb554e628599d5077ab07c8b468205e17f076671aedd52219722b4c006f",
+  "worksheets": [
+    "Field Trials",
+    "Route Catalog",
+    "Issue Log",
+    "Research Dashboard"
+  ],
+  "keyedRecords": 41,
+  "uniqueTrialIds": 40,
+  "ghostRows": [
+    {
+      "Trial ID": null,
+      "Date": null,
+      "Tester ID": null,
+      "Route ID": null,
+      "Start": null,
+      "Destination": null,
+      "Network": null,
+      "Device / iOS": null,
+      "Start time": null,
+      "End time": null,
+      "Actual minutes": null,
+      "Valhalla ETA (min)": null,
+      "Valhalla distance (m)": null,
+      "Actual distance (m)": null,
+      "Completed?": "Yes",
+      "GPS accuracy (m)": null,
+      "Wrong turns": 0,
+      "Entrance correct?": "Yes",
+      "Route line visible?": "Yes",
+      "Map loaded?": "Yes",
+      "Issues / observations": null,
+      "Screenshot reference": null,
+      "App version / commit": null,
+      "source_row": 43
+    }
+  ],
+  "primaryMeasuredN": 23,
+  "strictMeasuredN": 17,
+  "exploratoryNormalizedN": 24,
+  "exploratoryScenarioN": 36,
+  "ratioModel": {
+    "strict_ratio_median": 0.875,
+    "strict_ratio_p10": 0.78,
+    "strict_ratio_p90": 1.0210526315789505
+  },
+  "snapshotAvailable": true,
+  "approvalDecisionsApplied": true,
+  "analysisDefinitions": {
+    "primaryMeasured": "Completed iPhone records with numeric original actual and ETA values.",
+    "strictMeasured": "Primary records with timestamp-derived duration agreeing within 0.5 minutes.",
+    "exploratoryNormalized": "Primary set plus the approved normalization of a date-typed ETA cell.",
+    "exploratoryScenario": "Normalized set plus 12 approved high-uncertainty hypothetical route-model scenarios for untimed interface/routing checks; these are not measured walks."
+  }
+}

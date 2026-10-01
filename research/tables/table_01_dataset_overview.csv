@@ -1,0 +1,15 @@
+Metric,Value,Definition / note
+Source worksheets,4,Measured workbook structure
+Keyed field-test records,41,Rows with a nonblank Trial ID
+Unique Trial IDs,40,Duplicate Trial ID 25 reduces the unique count
+Duplicate-ID records,2,Both records sharing duplicated IDs are counted
+Blank-ID populated rows,1,Excluded from keyed trial analysis
+Completed=Yes keyed records,39,Recorded status only; not independent navigation verification
+Completed=No keyed records,2,Recorded status
+Original numeric actual/ETA pairs,24,Includes one Mac-based record
+Primary physical iPhone pairs,23,Completed iPhone records with numeric original actual and ETA
+Strict timestamp-consistent iPhone pairs,17,Primary pairs whose timestamp duration agrees within 0.5 min
+Records missing both timing fields,16,Includes completed and incomplete records
+Route Catalog entries,6,Suggested routes; none have a Verified on date
+Issue Log entries,0,Field narrative issues are not represented here
+Numeric GPS accuracy observations,0,No numeric meter-valued accuracy entries

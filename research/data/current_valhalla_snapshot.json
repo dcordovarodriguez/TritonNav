@@ -1,0 +1,422 @@
+{
+  "capturedAt": "2026-09-30T23:22:53.124Z",
+  "apiUrl": "local TritonNav internal API",
+  "results": [
+    {
+      "sourceRow": 3,
+      "trialId": 2,
+      "routeId": 2,
+      "origin": "DIB",
+      "destination": "Warren lecture hall",
+      "completed": "Yes",
+      "device": "Iphone",
+      "capturedAt": "2026-09-30T23:22:53.124Z",
+      "originCoordinate": {
+        "lat": 32.87931,
+        "lng": -117.23455
+      },
+      "destinationCoordinate": {
+        "lat": 32.88172,
+        "lng": -117.23505
+      },
+      "status": 200,
+      "provider": "valhalla",
+      "isEstimated": false,
+      "distanceMeters": 535,
+      "durationSeconds": 379,
+      "errorCode": null,
+      "errorMessage": null
+    },
+    {
+      "sourceRow": 15,
+      "trialId": 14,
+      "routeId": 14,
+      "origin": "CSB building",
+      "destination": "marshall college",
+      "completed": "No",
+      "device": "Mac",
+      "capturedAt": "2026-09-30T23:22:53.124Z",
+      "originCoordinate": null,
+      "destinationCoordinate": null,
+      "status": null,
+      "provider": null,
+      "isEstimated": null,
+      "distanceMeters": null,
+      "durationSeconds": null,
+      "errorCode": "UNRESOLVED_DESTINATION",
+      "errorMessage": "The current campus resolver could not resolve both endpoints."
+    },
+    {
+      "sourceRow": 17,
+      "trialId": 16,
+      "routeId": 16,
+      "origin": "RIMAC",
+      "destination": "Seventh College Housing",
+      "completed": "No",
+      "device": "Mac",
+      "capturedAt": "2026-09-30T23:22:53.124Z",
+      "originCoordinate": {
+        "lat": 32.88531,
+        "lng": -117.23971
+      },
+      "destinationCoordinate": null,
+      "status": null,
+      "provider": null,
+      "isEstimated": null,
+      "distanceMeters": null,
+      "durationSeconds": null,
+      "errorCode": "UNRESOLVED_DESTINATION",
+      "errorMessage": "The current campus resolver could not resolve both endpoints."
+    },
+    {
+      "sourceRow": 27,
+      "trialId": 25,
+      "routeId": 26,
+      "origin": "center hall",
+      "destination": "pepper canyon hall",
+      "completed": "Yes",
+      "device": "Iphone",
+      "capturedAt": "2026-09-30T23:22:53.124Z",
+      "originCoordinate": {
+        "lat": 32.87788,
+        "lng": -117.23604
+      },
+      "destinationCoordinate": {
+        "lat": 32.87635,
+        "lng": -117.24072
+      },
+      "status": 200,
+      "provider": "valhalla",
+      "isEstimated": false,
+      "distanceMeters": 834,
+      "durationSeconds": 591,
+      "errorCode": null,
+      "errorMessage": null
+    },
+    {
+      "sourceRow": 30,
+      "trialId": 28,
+      "routeId": 29,
+      "origin": "MAIN gym",
+      "destination": "FAH",
+      "completed": "Yes",
+      "device": "Iphone",
+      "capturedAt": "2026-09-30T23:22:53.124Z",
+      "originCoordinate": {
+        "lat": 32.87715,
+        "lng": -117.24127
+      },
+      "destinationCoordinate": {
+        "lat": 32.882,
+        "lng": -117.2339
+      },
+      "status": 200,
+      "provider": "valhalla",
+      "isEstimated": false,
+      "distanceMeters": 1153,
+      "durationSeconds": 815,
+      "errorCode": null,
+      "errorMessage": null
+    },
+    {
+      "sourceRow": 31,
+      "trialId": 29,
+      "routeId": 30,
+      "origin": "FAH",
+      "destination": "center hall",
+      "completed": "Yes",
+      "device": "Iphone",
+      "capturedAt": "2026-09-30T23:22:53.124Z",
+      "originCoordinate": {
+        "lat": 32.882,
+        "lng": -117.2339
+      },
+      "destinationCoordinate": {
+        "lat": 32.87788,
+        "lng": -117.23604
+      },
+      "status": 200,
+      "provider": "valhalla",
+      "isEstimated": false,
+      "distanceMeters": 627,
+      "durationSeconds": 444,
+      "errorCode": null,
+      "errorMessage": null
+    },
+    {
+      "sourceRow": 32,
+      "trialId": 30,
+      "routeId": 31,
+      "origin": "center hall",
+      "destination": "Geisel Library",
+      "completed": "Yes",
+      "device": "Iphone",
+      "capturedAt": "2026-09-30T23:22:53.124Z",
+      "originCoordinate": {
+        "lat": 32.87788,
+        "lng": -117.23604
+      },
+      "destinationCoordinate": {
+        "lat": 32.88085,
+        "lng": -117.23753
+      },
+      "status": 200,
+      "provider": "valhalla",
+      "isEstimated": false,
+      "distanceMeters": 518,
+      "durationSeconds": 368,
+      "errorCode": null,
+      "errorMessage": null
+    },
+    {
+      "sourceRow": 33,
+      "trialId": 31,
+      "routeId": 32,
+      "origin": "Geisel Library",
+      "destination": "galbraith hall",
+      "completed": "Yes",
+      "device": "Iphone",
+      "capturedAt": "2026-09-30T23:22:53.124Z",
+      "originCoordinate": {
+        "lat": 32.88085,
+        "lng": -117.23753
+      },
+      "destinationCoordinate": {
+        "lat": 32.87371,
+        "lng": -117.24095
+      },
+      "status": 200,
+      "provider": "valhalla",
+      "isEstimated": false,
+      "distanceMeters": 1163,
+      "durationSeconds": 828,
+      "errorCode": null,
+      "errorMessage": null
+    },
+    {
+      "sourceRow": 34,
+      "trialId": 32,
+      "routeId": 33,
+      "origin": "galbraith hall",
+      "destination": "fah",
+      "completed": "Yes",
+      "device": "Iphone",
+      "capturedAt": "2026-09-30T23:22:53.124Z",
+      "originCoordinate": {
+        "lat": 32.87371,
+        "lng": -117.24095
+      },
+      "destinationCoordinate": {
+        "lat": 32.882,
+        "lng": -117.2339
+      },
+      "status": 200,
+      "provider": "valhalla",
+      "isEstimated": false,
+      "distanceMeters": 1584,
+      "durationSeconds": 1125,
+      "errorCode": null,
+      "errorMessage": null
+    },
+    {
+      "sourceRow": 35,
+      "trialId": 33,
+      "routeId": 34,
+      "origin": "fah",
+      "destination": "DIB",
+      "completed": "Yes",
+      "device": "Iphone",
+      "capturedAt": "2026-09-30T23:22:53.124Z",
+      "originCoordinate": {
+        "lat": 32.882,
+        "lng": -117.2339
+      },
+      "destinationCoordinate": {
+        "lat": 32.87931,
+        "lng": -117.23455
+      },
+      "status": 200,
+      "provider": "valhalla",
+      "isEstimated": false,
+      "distanceMeters": 497,
+      "durationSeconds": 352,
+      "errorCode": null,
+      "errorMessage": null
+    },
+    {
+      "sourceRow": 36,
+      "trialId": 34,
+      "routeId": 35,
+      "origin": "DIB",
+      "destination": "Mosaic Hall",
+      "completed": "Yes",
+      "device": "Iphone",
+      "capturedAt": "2026-09-30T23:22:53.124Z",
+      "originCoordinate": {
+        "lat": 32.87931,
+        "lng": -117.23455
+      },
+      "destinationCoordinate": {
+        "lat": 32.87995,
+        "lng": -117.24118
+      },
+      "status": 200,
+      "provider": "valhalla",
+      "isEstimated": false,
+      "distanceMeters": 775,
+      "durationSeconds": 550,
+      "errorCode": null,
+      "errorMessage": null
+    },
+    {
+      "sourceRow": 37,
+      "trialId": 35,
+      "routeId": 36,
+      "origin": "Mosaic Hall",
+      "destination": "center hall",
+      "completed": "Yes",
+      "device": "Iphone",
+      "capturedAt": "2026-09-30T23:22:53.124Z",
+      "originCoordinate": {
+        "lat": 32.87995,
+        "lng": -117.24118
+      },
+      "destinationCoordinate": {
+        "lat": 32.87788,
+        "lng": -117.23604
+      },
+      "status": 200,
+      "provider": "valhalla",
+      "isEstimated": false,
+      "distanceMeters": 772,
+      "durationSeconds": 549,
+      "errorCode": null,
+      "errorMessage": null
+    },
+    {
+      "sourceRow": 38,
+      "trialId": 36,
+      "routeId": 37,
+      "origin": "center hall",
+      "destination": "DIB",
+      "completed": "Yes",
+      "device": "Iphone",
+      "capturedAt": "2026-09-30T23:22:53.124Z",
+      "originCoordinate": {
+        "lat": 32.87788,
+        "lng": -117.23604
+      },
+      "destinationCoordinate": {
+        "lat": 32.87931,
+        "lng": -117.23455
+      },
+      "status": 200,
+      "provider": "valhalla",
+      "isEstimated": false,
+      "distanceMeters": 214,
+      "durationSeconds": 151,
+      "errorCode": null,
+      "errorMessage": null
+    },
+    {
+      "sourceRow": 39,
+      "trialId": 37,
+      "routeId": 38,
+      "origin": "DIB",
+      "destination": "MAIN gym",
+      "completed": "Yes",
+      "device": "Iphone",
+      "capturedAt": "2026-09-30T23:22:53.124Z",
+      "originCoordinate": {
+        "lat": 32.87931,
+        "lng": -117.23455
+      },
+      "destinationCoordinate": {
+        "lat": 32.87715,
+        "lng": -117.24127
+      },
+      "status": 200,
+      "provider": "valhalla",
+      "isEstimated": false,
+      "distanceMeters": 868,
+      "durationSeconds": 615,
+      "errorCode": null,
+      "errorMessage": null
+    },
+    {
+      "sourceRow": 40,
+      "trialId": 38,
+      "routeId": 39,
+      "origin": "MAIN gym",
+      "destination": "Price Center",
+      "completed": "Yes",
+      "device": "Iphone",
+      "capturedAt": "2026-09-30T23:22:53.124Z",
+      "originCoordinate": {
+        "lat": 32.87715,
+        "lng": -117.24127
+      },
+      "destinationCoordinate": {
+        "lat": 32.8798,
+        "lng": -117.2365
+      },
+      "status": 200,
+      "provider": "valhalla",
+      "isEstimated": false,
+      "distanceMeters": 679,
+      "durationSeconds": 481,
+      "errorCode": null,
+      "errorMessage": null
+    },
+    {
+      "sourceRow": 41,
+      "trialId": 39,
+      "routeId": 40,
+      "origin": "Price Center",
+      "destination": "DIB",
+      "completed": "Yes",
+      "device": "Iphone",
+      "capturedAt": "2026-09-30T23:22:53.124Z",
+      "originCoordinate": {
+        "lat": 32.8798,
+        "lng": -117.2365
+      },
+      "destinationCoordinate": {
+        "lat": 32.87931,
+        "lng": -117.23455
+      },
+      "status": 200,
+      "provider": "valhalla",
+      "isEstimated": false,
+      "distanceMeters": 462,
+      "durationSeconds": 327,
+      "errorCode": null,
+      "errorMessage": null
+    },
+    {
+      "sourceRow": 42,
+      "trialId": 40,
+      "routeId": null,
+      "origin": "DIB",
+      "destination": "Price Center",
+      "completed": "Yes",
+      "device": "mac",
+      "capturedAt": "2026-09-30T23:22:53.124Z",
+      "originCoordinate": {
+        "lat": 32.87931,
+        "lng": -117.23455
+      },
+      "destinationCoordinate": {
+        "lat": 32.8798,
+        "lng": -117.2365
+      },
+      "status": 200,
+      "provider": "valhalla",
+      "isEstimated": false,
+      "distanceMeters": 462,
+      "durationSeconds": 327,
+      "errorCode": null,
+      "errorMessage": null
+    }
+  ]
+}

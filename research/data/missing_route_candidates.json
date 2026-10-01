@@ -1,0 +1,155 @@
+[
+  {
+    "sourceRow": 3,
+    "trialId": 2,
+    "routeId": 2,
+    "origin": "DIB",
+    "destination": "Warren lecture hall",
+    "completed": "Yes",
+    "device": "Iphone"
+  },
+  {
+    "sourceRow": 15,
+    "trialId": 14,
+    "routeId": 14,
+    "origin": "CSB building",
+    "destination": "marshall college",
+    "completed": "No",
+    "device": "Mac"
+  },
+  {
+    "sourceRow": 17,
+    "trialId": 16,
+    "routeId": 16,
+    "origin": "RIMAC",
+    "destination": "Seventh College Housing",
+    "completed": "No",
+    "device": "Mac"
+  },
+  {
+    "sourceRow": 27,
+    "trialId": 25,
+    "routeId": 26,
+    "origin": "center hall",
+    "destination": "pepper canyon hall",
+    "completed": "Yes",
+    "device": "Iphone"
+  },
+  {
+    "sourceRow": 30,
+    "trialId": 28,
+    "routeId": 29,
+    "origin": "MAIN gym",
+    "destination": "FAH",
+    "completed": "Yes",
+    "device": "Iphone"
+  },
+  {
+    "sourceRow": 31,
+    "trialId": 29,
+    "routeId": 30,
+    "origin": "FAH",
+    "destination": "center hall",
+    "completed": "Yes",
+    "device": "Iphone"
+  },
+  {
+    "sourceRow": 32,
+    "trialId": 30,
+    "routeId": 31,
+    "origin": "center hall",
+    "destination": "Geisel Library",
+    "completed": "Yes",
+    "device": "Iphone"
+  },
+  {
+    "sourceRow": 33,
+    "trialId": 31,
+    "routeId": 32,
+    "origin": "Geisel Library",
+    "destination": "galbraith hall",
+    "completed": "Yes",
+    "device": "Iphone"
+  },
+  {
+    "sourceRow": 34,
+    "trialId": 32,
+    "routeId": 33,
+    "origin": "galbraith hall",
+    "destination": "fah",
+    "completed": "Yes",
+    "device": "Iphone"
+  },
+  {
+    "sourceRow": 35,
+    "trialId": 33,
+    "routeId": 34,
+    "origin": "fah",
+    "destination": "DIB",
+    "completed": "Yes",
+    "device": "Iphone"
+  },
+  {
+    "sourceRow": 36,
+    "trialId": 34,
+    "routeId": 35,
+    "origin": "DIB",
+    "destination": "Mosaic Hall",
+    "completed": "Yes",
+    "device": "Iphone"
+  },
+  {
+    "sourceRow": 37,
+    "trialId": 35,
+    "routeId": 36,
+    "origin": "Mosaic Hall",
+    "destination": "center hall",
+    "completed": "Yes",
+    "device": "Iphone"
+  },
+  {
+    "sourceRow": 38,
+    "trialId": 36,
+    "routeId": 37,
+    "origin": "center hall",
+    "destination": "DIB",
+    "completed": "Yes",
+    "device": "Iphone"
+  },
+  {
+    "sourceRow": 39,
+    "trialId": 37,
+    "routeId": 38,
+    "origin": "DIB",
+    "destination": "MAIN gym",
+    "completed": "Yes",
+    "device": "Iphone"
+  },
+  {
+    "sourceRow": 40,
+    "trialId": 38,
+    "routeId": 39,
+    "origin": "MAIN gym",
+    "destination": "Price Center",
+    "completed": "Yes",
+    "device": "Iphone"
+  },
+  {
+    "sourceRow": 41,
+    "trialId": 39,
+    "routeId": 40,
+    "origin": "Price Center",
+    "destination": "DIB",
+    "completed": "Yes",
+    "device": "Iphone"
+  },
+  {
+    "sourceRow": 42,
+    "trialId": 40,
+    "routeId": null,
+    "origin": "DIB",
+    "destination": "Price Center",
+    "completed": "Yes",
+    "device": "mac"
+  }
+]

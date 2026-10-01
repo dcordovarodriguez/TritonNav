@@ -1,0 +1,33 @@
+{
+  "approvedAt": "2026-09-30",
+  "decisions": {
+    "trial2EtaNormalization": {
+      "status": "approved",
+      "valueMinutes": 3.0,
+      "scope": "exploratory normalized analysis"
+    },
+    "timestampDerivedDurations": {
+      "status": "approved",
+      "scope": "supplemental sensitivity values",
+      "rule": "Preserve entered durations; do not replace measured source values."
+    },
+    "scenarioFilledRecords": {
+      "status": "approved",
+      "count": 12,
+      "sourceRows": [30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41],
+      "scope": "clearly separated exploratory analysis",
+      "interpretation": "Hypothetical route-model scenarios derived from current Valhalla output, not measured walks."
+    },
+    "duplicateTrialId": {
+      "status": "approved for future source revision",
+      "trialId": 25,
+      "rule": "Do not alter the preserved source workbook in this analysis release."
+    },
+    "completedUntimedRecords": {
+      "interpretation": "Interface/routing checks rather than physical walking trials.",
+      "exception": "Source row 27 remains a documented failed destination-placement/navigation check despite Completed=Yes."
+    },
+    "approvedFigures": [1, 5, 6, 7],
+    "excludedFromFinalManuscript": [2, 3, 4]
+  }
+}

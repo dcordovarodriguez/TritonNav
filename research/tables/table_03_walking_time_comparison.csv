@@ -1,0 +1,24 @@
+source_row,trial_id,route_id,route_label,device_category,actual_minutes_original,valhalla_eta_minutes_original,signed_error_minutes,absolute_error_minutes,timestamp_minutes_calculated,timestamp_consistent,completed_original,issues_observations_original,provenance
+2,1,1.0,warr lect hall -> fah,iphone,9.000000000000048,9.0,4.796163466380676e-14,4.796163466380676e-14,9.0,True,Yes,,measured original actual and ETA; error calculated
+4,3,3.0,warr lect hall -> DIB,iphone,2.9999999999999893,3.0,-1.0658141036401503e-14,1.0658141036401503e-14,3.0,True,Yes,,measured original actual and ETA; error calculated
+5,4,4.0,warr lect hall -> Goldberg hall,iphone,1.999999999999993,1.0,0.9999999999999929,0.9999999999999929,2.0,True,Yes,,measured original actual and ETA; error calculated
+6,5,5.0,goldberg hall -> FAH,iphone,4.0,5.0,-1.0,1.0,1.0,False,Yes,,measured original actual and ETA; error calculated
+7,6,6.0,FAH -> Warren lecture hall,iphone,5.0,6.0,-1.0,1.0,5.0,True,Yes,,measured original actual and ETA; error calculated
+8,7,7.0,warr lect hall -> Geisel Library,iphone,4.0,5.0,-1.0,1.0,4.0,True,Yes,,measured original actual and ETA; error calculated
+9,8,8.0,Geisel Library -> Target,iphone,4.0,5.0,-1.0,1.0,6.0,False,Yes,,measured original actual and ETA; error calculated
+10,9,9.0,Target -> Bird Rock Coffee,iphone,20.0,19.0,1.0,1.0,20.0,True,Yes,,measured original actual and ETA; error calculated
+11,10,10.0,DIB -> applied physics and mathematics,iphone,5.0,6.0,-1.0,1.0,5.0,True,Yes,,measured original actual and ETA; error calculated
+12,11,11.0,applied physics and mathematics -> galbraith hall,iphone,12.0,13.0,-1.0,1.0,12.0,True,Yes,,measured original actual and ETA; error calculated
+13,12,12.0,galbraith hall -> MAIN gym,iphone,9.0,11.0,-2.0,2.0,8.0,False,Yes,,measured original actual and ETA; error calculated
+14,13,13.0,MAIN gym -> CSB building,iphone,5.0,6.0,-1.0,1.0,6.0,False,Yes,,measured original actual and ETA; error calculated
+18,17,17.0,seventh college housing -> RIMAC,iphone,8.0,9.0,-1.0,1.0,8.0,True,Yes,,measured original actual and ETA; error calculated
+19,18,18.0,RIMAC -> Geisel Library,iphone,6.0,7.0,-1.0,1.0,6.0,True,Yes,,measured original actual and ETA; error calculated
+20,19,19.0,Geisel Library -> CSB building,iphone,8.0,10.0,-2.0,2.0,8.0,True,Yes,,measured original actual and ETA; error calculated
+21,20,20.0,CSB building -> Student Health and Wellness Center,iphone,2.0,2.0,0.0,0.0,1.0,False,Yes,,measured original actual and ETA; error calculated
+22,21,21.0,Student Health and Wellness Center -> Mosaic Hall,iphone,3.0,4.0,-1.0,1.0,3.0,True,Yes,,measured original actual and ETA; error calculated
+23,22,22.0,Mosaic Hall -> catalyst,iphone,1.0,1.0,0.0,0.0,1.0,True,Yes,,measured original actual and ETA; error calculated
+24,23,23.0,catalyst -> peterson hall,iphone,4.0,4.0,0.0,0.0,33.0,False,Yes,,measured original actual and ETA; error calculated
+25,24,24.0,peterson hall -> sixth market,iphone,4.0,5.0,-1.0,1.0,4.0,True,Yes,"it depicts sixth market as being next to DIB, WRONG",measured original actual and ETA; error calculated
+26,25,25.0,peterson hall -> center hall,iphone,7.0,8.0,-1.0,1.0,7.0,True,Yes,,measured original actual and ETA; error calculated
+28,26,27.0,center hall -> MANDE,iphone,3.0,7.0,-4.0,4.0,3.0,True,Yes,,measured original actual and ETA; error calculated
+29,27,28.0,MANDE -> MAIN gym,iphone,3.0,3.0,0.0,0.0,3.0,True,Yes,,measured original actual and ETA; error calculated
