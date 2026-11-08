@@ -1,0 +1,84 @@
+name: UCSD campus data audit
+
+on:
+  schedule:
+    # 09:00–10:00 America/Los_Angeles Tuesday, depending on daylight saving time.
+    - cron: "0 17 * * 2"
+  workflow_dispatch:
+
+concurrency:
+  group: campus-data-audit
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  compare-official-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: Fetch, normalize, compare, and validate public UCSD data
+        run: npm run campus-data:audit
+      - name: Preserve the generated review reports
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: campus-data-review-${{ github.run_id }}
+          path: |
+            reports/new-buildings.*
+            reports/classroom-diff.*
+            reports/unmatched-classrooms.json
+            reports/ridge-walk-north-classrooms.md
+          if-no-files-found: error
+          retention-days: 30
+      - name: Create or update an issue when the comparison finds work
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require('node:fs');
+            const buildings = JSON.parse(fs.readFileSync('reports/new-buildings.json', 'utf8'));
+            const classrooms = JSON.parse(fs.readFileSync('reports/classroom-diff.json', 'utf8'));
+            const hasWork = buildings.newCandidateCount > 0 || classrooms.newClassroomCount > 0;
+            if (!hasWork) {
+              core.info('No new official data candidates; no issue created.');
+              return;
+            }
+            const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date());
+            const title = `UCSD Campus Data Refresh — ${date}`;
+            const body = [
+              '## Summary',
+              `- Official GIS building point candidates not matched by current names/aliases: ${buildings.newCandidateCount} (${buildings.newOperationalCount} marked operational by GIS).`,
+              `- Public Registrar classroom rows not matched by current room names: ${classrooms.newClassroomCount}.`,
+              '',
+              '## Evidence and reports',
+              `- [UCSD Buildings Campus Map service](${buildings.officialBuildingSource})`,
+              `- [UCSD Classroom Attributes](${classrooms.classroomSource})`,
+              `- [UCSD Media Equipment](${classrooms.mediaSource})`,
+              '- Run `npm run campus-data:audit` locally to regenerate the raw snapshots, comparisons, and reports.',
+              '',
+              '## Review checklist',
+              '- [ ] Confirm each building is within the intended TritonNav service area and currently navigable.',
+              '- [ ] Reconcile lifecycle conflicts with newer official operational sources.',
+              '- [ ] Confirm room-to-building canonical links and decide which Registrar rooms belong in TritonNav.',
+              '- [ ] Verify entrance/routing anchors and accessibility before proposing repository data changes.',
+              '- [ ] Keep unknown indoor coordinates, entrances, and accessibility values unknown.',
+              '',
+              'This issue is a read-only review queue. The automation does not edit campus source files or open a data PR.'
+            ].join('\n');
+            const { owner, repo } = context.repo;
+            const { data: issues } = await github.rest.issues.listForRepo({ owner, repo, state: 'open', per_page: 100 });
+            const existing = issues.find(issue => /^UCSD Campus Data Refresh — /.test(issue.title) && !issue.pull_request);
+            if (existing) {
+              await github.rest.issues.update({ owner, repo, issue_number: existing.number, title, body });
+              core.info(`Updated ${existing.html_url}`);
+            } else {
+              const created = await github.rest.issues.create({ owner, repo, title, body });
+              core.info(`Created ${created.data.html_url}`);
+            }
