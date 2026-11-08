@@ -293,12 +293,14 @@ export default function MapView({
   );
   const mapsUrl = useMemo(
     () =>
-      data?.googleMapsUrl ||
+      data?.normalizedBuilding?.routingStatus === "entrance-unverified" && !data?.selectedEntrance
+        ? ""
+        : data?.googleMapsUrl ||
       createGoogleMapsDirectionsUrl({
         destination,
         origin: liveOrigin || (showFallbackOrigin ? fallbackLocation : null)
       }),
-    [data?.googleMapsUrl, destination, fallbackLocation, liveOrigin, showFallbackOrigin]
+    [data?.googleMapsUrl, data?.normalizedBuilding?.routingStatus, data?.selectedEntrance, destination, fallbackLocation, liveOrigin, showFallbackOrigin]
   );
   const hasGoogleMapsAction = Boolean(mapsUrl);
   const shellClassName =

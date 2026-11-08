@@ -621,6 +621,7 @@ export default function HomePage() {
     () => (navigationData ? createDestinationIntelligence(navigationData) : null),
     [navigationData]
   );
+  const selectedRoomRecord = intelligence?.roomRecords?.find((room) => room.number === navigationData?.room);
   const activeUtility = UTILITY_CATEGORIES.find((category) => category.id === activeUtilityId) || null;
   const activeUtilityResults = activeUtilityId
     ? intelligence?.utilities?.[activeUtilityId]?.results || []
@@ -652,7 +653,9 @@ export default function HomePage() {
     ? CAMPUS_COLLEGE_MARKERS.find((college) => college.id === selectedCollegeId) || null
     : null;
   const destination = navigationData?.destination;
-  const routingDestination = navigationData?.routingDestination || destination;
+  const routingDestination = navigationData?.normalizedBuilding?.routingStatus === "entrance-unverified" && !navigationData?.selectedEntrance
+    ? null
+    : navigationData?.routingDestination || destination;
   const selectedKey = selectedResult
     ? `${selectedResult.buildingId}:${selectedResult.room || ""}`
     : "";
@@ -1580,6 +1583,17 @@ export default function HomePage() {
                   {navigationData.room ? ` • room ${navigationData.room}` : ""}
                   {navigationData.building.shortName ? ` • ${navigationData.building.shortName}` : ""}
                 </p>
+                {navigationData.normalizedBuilding?.routingStatus === "entrance-unverified" ? (
+                  <p className="sheet-supporting-copy">The marker shows the approximate building location. Walking directions will be available after an entrance is verified.</p>
+                ) : null}
+                {selectedRoomRecord?.roomType ? (
+                  <p className="sheet-supporting-copy">
+                    {selectedRoomRecord.roomType}
+                    {selectedRoomRecord.capacity ? ` • ${selectedRoomRecord.capacity} seats` : ""}
+                    {selectedRoomRecord.floor === 0 ? " • Basement" : selectedRoomRecord.floor != null ? ` • Floor ${selectedRoomRecord.floor}` : ""}
+                    {selectedRoomRecord.source?.url ? <> • <a href={selectedRoomRecord.source.url} target="_blank" rel="noreferrer">UCSD Facilities</a></> : null}
+                  </p>
+                ) : null}
                 {intelligence?.selectedEntrance ? (
                   <p className="sheet-supporting-copy">
                     Preferred entrance: {intelligence.selectedEntrance.name}
