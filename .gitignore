@@ -53,3 +53,8 @@ data/campus/imports/raw/*
 data/campus/imports/generated/*
 !data/campus/imports/generated/.gitkeep
 !data/campus/imports/generated/README.md
+
+# Full generated campus comparisons are retained locally and as CI artifacts.
+/reports/new-buildings.json
+/reports/classroom-diff.json
+/reports/unmatched-classrooms.json
