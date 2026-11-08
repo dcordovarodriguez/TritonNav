@@ -66,7 +66,7 @@ const CAMPUS_COLLEGES = [
       { lat: 32.88145, lng: -117.2396 },
       { lat: 32.88135, lng: -117.24335 }
     ],
-    associatedBuildingIds: [],
+    associatedBuildingIds: ["malk-hall", "coalition", "alianza", "umoja"],
     source: "manual-approximation"
   },
   {
@@ -108,7 +108,7 @@ const CAMPUS_COLLEGES = [
       { lat: 32.8713, lng: -117.2403 },
       { lat: 32.8712, lng: -117.2436 }
     ],
-    associatedBuildingIds: [],
+    associatedBuildingIds: ["sankofa", "podemos"],
     source: "manual-approximation"
   }
 ];

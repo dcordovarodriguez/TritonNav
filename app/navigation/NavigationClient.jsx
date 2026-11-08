@@ -46,6 +46,20 @@ export default function NavigationClient() {
     );
   }
 
+  if (navigationData.normalizedBuilding?.routingStatus === "entrance-unverified" && !navigationData.selectedEntrance) {
+    return (
+      <main className="page-stack">
+        <section className="section-block">
+          <p className="eyebrow">Campus destination</p>
+          <h1>{navigationData.building.name}{navigationData.room ? ` • ${navigationData.room}` : ""}</h1>
+          <p>The map shows the approximate building location. Walking directions will be available after an entrance is verified.</p>
+          <MapView navigationData={navigationData} location={location} mapMode="destination" allowEndpointRouteFallback={false} />
+          <Link className="secondary-link" href="/">Back to search</Link>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="page-stack page-with-sheet">
       <section className="section-block">

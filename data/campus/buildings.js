@@ -889,6 +889,263 @@ const CAMPUS_BUILDINGS = [
     dataQuality: [CAMPUS_DATA_QUALITY.BUILDING_ONLY],
     description: "Upper-division Pepper Canyon East apartment destination documented by HDH and geolocated by UC San Diego MapLink.",
     indoorDataAvailable: false
+  },
+  {
+    "id": "malk-hall",
+    "name": "Brian C. Malk Hall",
+    "code": "MALK",
+    "aliases": [
+      "malk hall",
+      "brian malk hall",
+      "ridge walk north malk"
+    ],
+    "type": "building",
+    "district": "marshall",
+    "address": "3005 Voigt Drive, La Jolla, CA 92093",
+    "centroid": {
+      "lat": 32.883112092560594,
+      "lng": -117.24034349853552
+    },
+    "operationalStatus": "operational",
+    "facilityId": "1001857",
+    "source": {
+      "authority": "UC San Diego",
+      "sourceType": "official-gis",
+      "url": "https://admin-enterprise-gis.ucsd.edu/server/rest/services/Buildings/Buildings_Campus_Map/MapServer",
+      "retrievedAt": "2026-11-08T03:54:21.320Z",
+      "confidence": "official"
+    },
+    "accessibilityStatus": "unknown",
+    "entranceDataStatus": "needs-verification",
+    "routingStatus": "entrance-unverified",
+    "dataQuality": [
+      "building-only"
+    ],
+    "indoorDataAvailable": false
+  },
+  {
+    "id": "coalition",
+    "name": "Coalition",
+    "code": "COA",
+    "aliases": [
+      "coalition building",
+      "ridge walk north coalition"
+    ],
+    "type": "building",
+    "district": "marshall",
+    "address": "3015 Voigt Drive, La Jolla, CA 92093",
+    "centroid": {
+      "lat": 32.88210058246254,
+      "lng": -117.2399455836086
+    },
+    "operationalStatus": "operational",
+    "facilityId": "1001856",
+    "source": {
+      "authority": "UC San Diego",
+      "sourceType": "official-gis",
+      "url": "https://admin-enterprise-gis.ucsd.edu/server/rest/services/Buildings/Buildings_Campus_Map/MapServer",
+      "retrievedAt": "2026-11-08T03:54:21.320Z",
+      "confidence": "official"
+    },
+    "accessibilityStatus": "unknown",
+    "entranceDataStatus": "needs-verification",
+    "routingStatus": "entrance-unverified",
+    "dataQuality": [
+      "building-only"
+    ],
+    "indoorDataAvailable": false
+  },
+  {
+    "id": "alianza",
+    "name": "Alianza",
+    "code": "ALIANZA",
+    "aliases": [
+      "alianza hall",
+      "ridge walk north alianza"
+    ],
+    "type": "housing",
+    "district": "marshall",
+    "address": "3035 Voigt Drive, La Jolla, CA 92093",
+    "centroid": {
+      "lat": 32.88316250841299,
+      "lng": -117.23923619402497
+    },
+    "operationalStatus": "operational",
+    "facilityId": "1001854",
+    "source": {
+      "authority": "UC San Diego",
+      "sourceType": "official-gis",
+      "url": "https://admin-enterprise-gis.ucsd.edu/server/rest/services/Buildings/Buildings_Campus_Map/MapServer",
+      "retrievedAt": "2026-11-08T03:54:21.320Z",
+      "confidence": "official"
+    },
+    "accessibilityStatus": "unknown",
+    "entranceDataStatus": "needs-verification",
+    "routingStatus": "entrance-unverified",
+    "dataQuality": [
+      "building-only"
+    ],
+    "indoorDataAvailable": false
+  },
+  {
+    "id": "umoja",
+    "name": "Umoja",
+    "code": "UMOJA",
+    "aliases": [
+      "umoja hall",
+      "ridge walk north umoja"
+    ],
+    "type": "housing",
+    "district": "marshall",
+    "address": "3025 Voigt Drive, La Jolla, CA 92093",
+    "centroid": {
+      "lat": 32.88248785625324,
+      "lng": -117.23936225465694
+    },
+    "operationalStatus": "operational",
+    "facilityId": "1001855",
+    "source": {
+      "authority": "UC San Diego",
+      "sourceType": "official-gis",
+      "url": "https://admin-enterprise-gis.ucsd.edu/server/rest/services/Buildings/Buildings_Campus_Map/MapServer",
+      "retrievedAt": "2026-11-08T03:54:21.320Z",
+      "confidence": "official"
+    },
+    "accessibilityStatus": "unknown",
+    "entranceDataStatus": "needs-verification",
+    "routingStatus": "entrance-unverified",
+    "dataQuality": [
+      "building-only"
+    ],
+    "indoorDataAvailable": false
+  },
+  {
+    "id": "sankofa",
+    "name": "Sankofa",
+    "code": "SANKOFA",
+    "aliases": [
+      "sankofa hall",
+      "eighth college sankofa"
+    ],
+    "type": "housing",
+    "district": "eighth",
+    "address": "9165 Scholars Drive South, La Jolla, CA 92093",
+    "centroid": {
+      "lat": 32.8725419772791,
+      "lng": -117.24201515986451
+    },
+    "operationalStatus": "operational",
+    "facilityId": "1001842",
+    "source": {
+      "authority": "UC San Diego",
+      "sourceType": "official-gis",
+      "url": "https://admin-enterprise-gis.ucsd.edu/server/rest/services/Buildings/Buildings_Campus_Map/MapServer",
+      "retrievedAt": "2026-11-08T03:54:21.320Z",
+      "confidence": "official"
+    },
+    "accessibilityStatus": "unknown",
+    "entranceDataStatus": "needs-verification",
+    "routingStatus": "entrance-unverified",
+    "dataQuality": [
+      "building-only"
+    ],
+    "indoorDataAvailable": false
+  },
+  {
+    "id": "podemos",
+    "name": "Podemos",
+    "code": "PODEM",
+    "aliases": [
+      "podemos hall",
+      "eighth college podemos"
+    ],
+    "type": "building",
+    "district": "eighth",
+    "address": "9185 Scholars Drive South, La Jolla, CA 92093",
+    "centroid": {
+      "lat": 32.873235798995076,
+      "lng": -117.24174096095159
+    },
+    "operationalStatus": "operational",
+    "facilityId": "1001843",
+    "source": {
+      "authority": "UC San Diego",
+      "sourceType": "official-gis",
+      "url": "https://admin-enterprise-gis.ucsd.edu/server/rest/services/Buildings/Buildings_Campus_Map/MapServer",
+      "retrievedAt": "2026-11-08T03:54:21.320Z",
+      "confidence": "official"
+    },
+    "accessibilityStatus": "unknown",
+    "entranceDataStatus": "needs-verification",
+    "routingStatus": "entrance-unverified",
+    "dataQuality": [
+      "building-only"
+    ],
+    "indoorDataAvailable": false
+  },
+  {
+    "id": "pepper-canyon-west-rya",
+    "name": "Rya",
+    "code": "RYA",
+    "aliases": [
+      "rya hall",
+      "pepper canyon west rya"
+    ],
+    "type": "housing",
+    "district": "university-center",
+    "address": "9620 Gilman Drive, La Jolla, CA 92093",
+    "centroid": {
+      "lat": 32.878056313444844,
+      "lng": -117.2326838380773
+    },
+    "operationalStatus": "operational",
+    "facilityId": "1001849",
+    "source": {
+      "authority": "UC San Diego",
+      "sourceType": "official-gis",
+      "url": "https://admin-enterprise-gis.ucsd.edu/server/rest/services/Buildings/Buildings_Campus_Map/MapServer",
+      "retrievedAt": "2026-11-08T03:54:21.320Z",
+      "confidence": "official"
+    },
+    "accessibilityStatus": "unknown",
+    "entranceDataStatus": "needs-verification",
+    "routingStatus": "entrance-unverified",
+    "dataQuality": [
+      "building-only"
+    ],
+    "indoorDataAvailable": false
+  },
+  {
+    "id": "pepper-canyon-west-vela",
+    "name": "Vela",
+    "code": "VELA",
+    "aliases": [
+      "vela hall",
+      "pepper canyon west vela"
+    ],
+    "type": "housing",
+    "district": "university-center",
+    "address": "9610 Gilman Drive, La Jolla, CA 92093",
+    "centroid": {
+      "lat": 32.87713147344624,
+      "lng": -117.23273500298727
+    },
+    "operationalStatus": "operational",
+    "facilityId": "1001850",
+    "source": {
+      "authority": "UC San Diego",
+      "sourceType": "official-gis",
+      "url": "https://admin-enterprise-gis.ucsd.edu/server/rest/services/Buildings/Buildings_Campus_Map/MapServer",
+      "retrievedAt": "2026-11-08T03:54:21.320Z",
+      "confidence": "official"
+    },
+    "accessibilityStatus": "unknown",
+    "entranceDataStatus": "needs-verification",
+    "routingStatus": "entrance-unverified",
+    "dataQuality": [
+      "building-only"
+    ],
+    "indoorDataAvailable": false
   }
 ];
 
